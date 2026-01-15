@@ -39,6 +39,25 @@ app.get("/", (req, res) => {
     res.json({ message: "Task Management API is running" });
 });
 
+// Environment variables check endpoint
+app.get("/api/env-check", (req, res) => {
+    res.json({
+        success: true,
+        environment: {
+            NODE_ENV: process.env.NODE_ENV || 'not set',
+            hasMongoUri: !!process.env.MONGODB_URI,
+            mongoUriLength: process.env.MONGODB_URI?.length || 0,
+            hasJwtSecret: !!process.env.JWT_SECRET,
+            jwtSecretLength: process.env.JWT_SECRET?.length || 0,
+            jwtExpiresIn: process.env.JWT_EXPIRES_IN || 'not set',
+            hasFrontendUrl: !!process.env.FRONTEND_URL,
+            frontendUrl: process.env.FRONTEND_URL || 'not set',
+            port: process.env.PORT || 'not set'
+        },
+        message: "Check if all required variables are set. MongoDB URI and JWT Secret should have length > 0"
+    });
+});
+
 // Test endpoint for debugging Vercel deployment
 app.get("/api/test", async (req, res) => {
     try {
