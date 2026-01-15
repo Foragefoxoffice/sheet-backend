@@ -1,17 +1,33 @@
-import mongoose from 'mongoose';
-import dotenv from 'dotenv';
+import mongoose from "mongoose";
 
-dotenv.config();
+let cached = global.mongoose;
+
+if (!cached) {
+  cached = global.mongoose = { conn: null, promise: null };
+}
 
 const connectDB = async () => {
-    try {
-        const conn = await mongoose.connect(process.env.MONGODB_URI);
+  if (cached.conn) {
+    return cached.conn;
+  }
 
-        console.log(`MongoDB Connected: ${conn.connection.host}`);
-    } catch (error) {
-        console.error(`Error: ${error.message}`);
-        process.exit(1);
-    }
+  if (!cached.promise) {
+    cached.promise = mongoose
+      .connect(process.env.MONGODB_URI, {
+        bufferCommands: false,
+      })
+      .then((mongoose) => mongoose);
+  }
+
+  try {
+    cached.conn = await cached.promise;
+    console.log("MongoDB connected");
+    return cached.conn;
+  } catch (error) {
+    cached.promise = null;
+    console.error("MongoDB connection error:", error);
+    throw error; // ❗ NEVER process.exit on Vercel
+  }
 };
 
 export default connectDB;
