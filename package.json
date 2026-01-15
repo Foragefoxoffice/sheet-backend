@@ -2,11 +2,16 @@
   "name": "task-management-backend",
   "version": "1.0.0",
   "description": "Task Management System Backend API",
-  "main": "src/server.js",
+  "main": "index.js",
   "type": "module",
   "scripts": {
-    "start": "node src/server.js",
-    "dev": "nodemon src/server.js",
+    "start": "node index.js",
+    "dev": "nodemon index.js",
+    "pm2:start": "pm2 start ecosystem.config.cjs",
+    "pm2:stop": "pm2 stop task-management-api",
+    "pm2:restart": "pm2 restart task-management-api",
+    "pm2:logs": "pm2 logs task-management-api",
+    "pm2:monit": "pm2 monit",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": [
@@ -26,6 +31,7 @@
     "mongoose": "^8.0.3",
     "node-cron": "^4.2.1",
     "nodemailer": "^7.0.12",
+    "pm2": "^5.3.0",
     "twilio": "^5.11.2"
   },
   "devDependencies": {
