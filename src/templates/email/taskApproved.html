@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Task Approved</title>
+</head>
+
+<body
+    style="margin: 0; padding: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f5f5f5;">
+    <table role="presentation" style="width: 100%; border-collapse: collapse;">
+        <tr>
+            <td align="center" style="padding: 40px 0;">
+                <table role="presentation"
+                    style="width: 600px; border-collapse: collapse; background-color: #ffffff; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1); border-radius: 8px; overflow: hidden;">
+                    <!-- Header -->
+                    <tr>
+                        <td
+                            style="background: linear-gradient(135deg, #10b981 0%, #059669 100%); padding: 40px 30px; text-align: center;">
+                            <h1 style="margin: 0; color: #ffffff; font-size: 28px; font-weight: 600;">✅ Task Approved!
+                            </h1>
+                        </td>
+                    </tr>
+
+                    <!-- Body -->
+                    <tr>
+                        <td style="padding: 40px 30px;">
+                            <p style="margin: 0 0 20px; font-size: 16px; line-height: 1.6; color: #333333;">
+                                Hi <strong>{{userName}}</strong>,
+                            </p>
+                            <p style="margin: 0 0 30px; font-size: 16px; line-height: 1.6; color: #555555;">
+                                Great news! Your task has been approved by <strong>{{approvedBy}}</strong>. Excellent
+                                work! 🎉
+                            </p>
+
+                            <!-- Task Card -->
+                            <table role="presentation"
+                                style="width: 100%; border-collapse: collapse; background-color: #f0fdf4; border-radius: 8px; overflow: hidden; margin-bottom: 30px; border: 2px solid #10b981;">
+                                <tr>
+                                    <td style="padding: 25px;">
+                                        <div style="margin-bottom: 15px;">
+                                            <span
+                                                style="display: inline-block; background-color: #667eea; color: #ffffff; padding: 4px 12px; border-radius: 12px; font-size: 12px; font-weight: 600;">
+                                                #{{taskNumber}}
+                                            </span>
+                                        </div>
+
+                                        <h2
+                                            style="margin: 0 0 20px; font-size: 20px; color: #1f2937; font-weight: 600;">
+                                            {{taskTitle}}
+                                        </h2>
+
+                                        <div
+                                            style="text-align: center; padding: 30px; background-color: #ffffff; border-radius: 6px; margin-bottom: 20px;">
+                                            <div style="font-size: 48px; margin-bottom: 10px;">✅</div>
+                                            <span
+                                                style="display: inline-block; background-color: #10b981; color: #ffffff; padding: 8px 24px; border-radius: 20px; font-size: 16px; font-weight: 600;">
+                                                APPROVED
+                                            </span>
+                                        </div>
+
+                                        <table role="presentation" style="width: 100%; border-collapse: collapse;">
+                                            <tr>
+                                                <td style="padding: 8px 0; font-size: 14px; color: #6b7280;">
+                                                    <strong style="color: #374151;">👤 Approved By:</strong>
+                                                </td>
+                                                <td
+                                                    style="padding: 8px 0; font-size: 14px; color: #1f2937; text-align: right;">
+                                                    {{approvedBy}}
+                                                </td>
+                                            </tr>
+                                            <tr>
+                                                <td style="padding: 8px 0; font-size: 14px; color: #6b7280;">
+                                                    <strong style="color: #374151;">📅 Approved On:</strong>
+                                                </td>
+                                                <td
+                                                    style="padding: 8px 0; font-size: 14px; color: #1f2937; text-align: right;">
+                                                    {{approvedDate}}
+                                                </td>
+                                            </tr>
+                                        </table>
+                                    </td>
+                                </tr>
+                            </table>
+
+                            <div
+                                style="background-color: #f0fdf4; border-left: 4px solid #10b981; padding: 15px; border-radius: 4px; margin-bottom: 30px;">
+                                <p style="margin: 0; font-size: 14px; color: #065f46; font-weight: 600;">
+                                    🎉 Keep up the excellent work!
+                                </p>
+                            </div>
+
+                            <!-- CTA Button -->
+                            <table role="presentation" style="width: 100%; border-collapse: collapse;">
+                                <tr>
+                                    <td align="center">
+                                        <a href="{{taskLink}}"
+                                            style="display: inline-block; background-color: #10b981; color: #ffffff; text-decoration: none; padding: 14px 40px; border-radius: 6px; font-size: 16px; font-weight: 600; box-shadow: 0 4px 6px rgba(16, 185, 129, 0.3);">
+                                            View Task Details
+                                        </a>
+                                    </td>
+                                </tr>
+                            </table>
+                        </td>
+                    </tr>
+
+                    <!-- Footer -->
+                    <tr>
+                        <td
+                            style="background-color: #f8f9fa; padding: 30px; text-align: center; border-top: 1px solid #e5e7eb;">
+                            <p style="margin: 0 0 10px; font-size: 14px; color: #6b7280;">
+                                This is an automated notification from Task Manager
+                            </p>
+                            <p style="margin: 0; font-size: 12px; color: #9ca3af;">
+                                © 2026 Task Manager. All rights reserved.
+                            </p>
+                        </td>
+                    </tr>
+                </table>
+            </td>
+        </tr>
+    </table>
+</body>
+
+</html>
