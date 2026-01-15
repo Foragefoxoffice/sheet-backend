@@ -13,7 +13,8 @@ import userRoutes from "./routes/users.js";
 import roleRoutes from "./routes/roles.js";
 
 dotenv.config();
-connectDB();
+// Connect to database - will be cached in serverless environment
+connectDB().catch(err => console.error('Database connection error:', err));
 
 const app = express();
 
