@@ -13,26 +13,33 @@ const generateToken = (id) => {
 // @access  Public
 export const login = async (req, res) => {
     try {
+        console.log('Login attempt received:', { whatsapp: req.body.whatsapp });
         const { whatsapp, password } = req.body;
 
         if (!whatsapp || !password) {
+            console.log('Missing credentials');
             return res.status(400).json({ error: 'Please provide WhatsApp number and password' });
         }
 
+        console.log('Finding user with whatsapp:', whatsapp);
         // Find user by whatsapp and include password, populate role
         const user = await User.findOne({ whatsapp }).select('+password').populate('role');
 
         if (!user) {
+            console.log('User not found for whatsapp:', whatsapp);
             return res.status(401).json({ error: 'Invalid credentials' });
         }
 
+        console.log('User found, checking password');
         // Check password
         const isMatch = await user.matchPassword(password);
 
         if (!isMatch) {
+            console.log('Password mismatch');
             return res.status(401).json({ error: 'Invalid credentials' });
         }
 
+        console.log('Password matched, generating token');
         // Generate token
         const token = generateToken(user._id);
 
@@ -50,7 +57,9 @@ export const login = async (req, res) => {
         });
     } catch (error) {
         console.error('Login error:', error);
-        res.status(500).json({ error: 'Server error' });
+        console.error('Error stack:', error.stack);
+        console.error('Error message:', error.message);
+        res.status(500).json({ error: 'Server error', details: process.env.NODE_ENV === 'development' ? error.message : undefined });
     }
 };
 
