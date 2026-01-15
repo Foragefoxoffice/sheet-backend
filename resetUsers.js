@@ -98,7 +98,7 @@ const resetUsers = async () => {
         console.log('  Manager 2:   9876543213');
         console.log('  Staff 1:     9876543214');
         console.log('  Staff 2:     9876543215');
-        console.log('  Staff 3:     9876543216');
+        console.log('  Staff 3:     6379034696');
         console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
 
         console.log(`\n✅ Successfully created ${newUsers.length} new users!`);
