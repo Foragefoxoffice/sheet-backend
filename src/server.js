@@ -42,6 +42,9 @@ app.get("/", (req, res) => {
 // Test endpoint for debugging Vercel deployment
 app.get("/api/test", async (req, res) => {
     try {
+        // Ensure database is connected
+        await connectDB();
+
         const mongoose = await import('mongoose');
         const dbState = mongoose.connection.readyState;
         const states = {
@@ -54,7 +57,7 @@ app.get("/api/test", async (req, res) => {
         res.json({
             success: true,
             database: {
-                state: states[dbState],
+                state: states[dbState] || 'unknown',
                 stateCode: dbState
             },
             environment: {
@@ -67,7 +70,8 @@ app.get("/api/test", async (req, res) => {
     } catch (error) {
         res.status(500).json({
             success: false,
-            error: error.message
+            error: error.message,
+            stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
         });
     }
 });
