@@ -15,7 +15,7 @@ const ROLE_HIERARCHY = {
 // @access  Private
 export const createTask = async (req, res) => {
     try {
-        const { task, assignedToEmail, priority, durationType, durationValue, notes, isSelfTask } = req.body;
+        const { task, assignedToEmail, priority, durationType, durationValue, notes, isSelfTask, taskGivenBy } = req.body;
 
         // Validate required fields
         if (!task || !assignedToEmail || !durationValue) {
@@ -27,6 +27,15 @@ export const createTask = async (req, res) => {
 
         if (!assignedUser) {
             return res.status(404).json({ error: 'Assigned user not found' });
+        }
+
+        // Find task giver if provided
+        let taskGivenByName = '';
+        if (taskGivenBy) {
+            const giverUser = await User.findOne({ email: taskGivenBy });
+            if (giverUser) {
+                taskGivenByName = giverUser.name;
+            }
         }
 
         // Calculate due date
@@ -50,6 +59,8 @@ export const createTask = async (req, res) => {
             dueDate,
             notes: notes || '',
             isSelfTask: isSelfTask || false,
+            taskGivenBy: taskGivenBy || '',
+            taskGivenByName: taskGivenByName,
         });
 
         // Send notification to assigned user
@@ -67,28 +78,20 @@ export const createTask = async (req, res) => {
     }
 };
 
-// @desc    Get tasks assigned to current user
+// @desc    Get tasks assigned to current user (by others)
 // @route   GET /api/tasks
 // @access  Private
 export const getTasks = async (req, res) => {
     try {
-        const userRoleName = req.user.role?.name || req.user.role;
         const userEmail = req.user.email;
 
-        let tasks;
-
-        // Director and GeneralManager see all tasks
-        if (userRoleName === 'director' || userRoleName === 'generalmanager') {
-            tasks = await Task.find().populate('createdBy assignedTo', 'name email role').sort({ createdAt: -1 });
-        } else {
-            // Manager and Staff see only tasks assigned to them by others
-            tasks = await Task.find({
-                assignedToEmail: userEmail,
-                createdByEmail: { $ne: userEmail }, // Not created by themselves
-            })
-                .populate('createdBy assignedTo', 'name email role')
-                .sort({ createdAt: -1 });
-        }
+        // All users see only tasks assigned TO them BY others (excludes self-tasks)
+        const tasks = await Task.find({
+            assignedToEmail: userEmail,
+            createdByEmail: { $ne: userEmail }, // Not created by themselves
+        })
+            .populate('createdBy assignedTo', 'name email role')
+            .sort({ createdAt: -1 });
 
         res.json({
             success: true,
@@ -123,13 +126,15 @@ export const getSelfTasks = async (req, res) => {
     }
 };
 
-// @desc    Get tasks assigned by current user
+// @desc    Get tasks assigned by current user (to others)
 // @route   GET /api/tasks/assigned
 // @access  Private
 export const getAssignedTasks = async (req, res) => {
     try {
+        // Tasks created BY me and assigned TO others (excludes self-tasks)
         const tasks = await Task.find({
             createdByEmail: req.user.email,
+            assignedToEmail: { $ne: req.user.email }, // Not assigned to themselves
         })
             .populate('createdBy assignedTo', 'name email role')
             .sort({ createdAt: -1 });
@@ -140,6 +145,56 @@ export const getAssignedTasks = async (req, res) => {
         });
     } catch (error) {
         console.error('Get assigned tasks error:', error);
+        res.status(500).json({ error: 'Server error' });
+    }
+};
+
+
+// @desc    Get all tasks (role-based filtering)
+// @route   GET /api/tasks/all
+// @access  Private
+export const getAllTasks = async (req, res) => {
+    try {
+        const userRoleName = req.user.role?.name || req.user.role;
+        const userDepartment = req.user.department;
+
+        let tasks;
+
+        // Director and GM see ALL tasks from all departments
+        if (userRoleName === 'director' || userRoleName === 'generalmanager') {
+            tasks = await Task.find()
+                .populate('createdBy assignedTo', 'name email role department')
+                .sort({ createdAt: -1 });
+        }
+        // Manager sees tasks of staff in their department
+        else if (userRoleName === 'manager') {
+            if (!userDepartment) {
+                // Manager without department sees nothing
+                tasks = [];
+            } else {
+                // Get all users in manager's department
+                const departmentUsers = await User.find({ department: userDepartment }).select('email');
+                const departmentEmails = departmentUsers.map(u => u.email);
+
+                // Find tasks assigned to users in this department
+                tasks = await Task.find({
+                    assignedToEmail: { $in: departmentEmails }
+                })
+                    .populate('createdBy assignedTo', 'name email role department')
+                    .sort({ createdAt: -1 });
+            }
+        }
+        // Staff sees nothing (or could see their own tasks)
+        else {
+            tasks = [];
+        }
+
+        res.json({
+            success: true,
+            tasks,
+        });
+    } catch (error) {
+        console.error('Get all tasks error:', error);
         res.status(500).json({ error: 'Server error' });
     }
 };
@@ -340,5 +395,65 @@ export const deleteTask = async (req, res) => {
     } catch (error) {
         console.error('Delete task error:', error);
         res.status(500).json({ error: error.message });
+    }
+};
+
+// @desc    Add comment to task
+// @route   POST /api/tasks/:id/comments
+// @access  Private
+export const addTaskComment = async (req, res) => {
+    try {
+        const { text } = req.body;
+        if (!text) {
+            return res.status(400).json({ error: 'Comment text is required' });
+        }
+
+        const task = await Task.findById(req.params.id);
+        if (!task) {
+            return res.status(404).json({ error: 'Task not found' });
+        }
+
+        const userEmail = req.user.email;
+        const userRoleName = req.user.role?.name || req.user.role;
+
+        // Check permissions: Creator, Assignee, Giver, or Manager+
+        let canComment = false;
+        if (['director', 'generalmanager', 'manager'].includes(userRoleName)) {
+            canComment = true;
+        } else if (task.createdByEmail === userEmail) {
+            canComment = true;
+        } else if (task.assignedToEmail === userEmail) {
+            canComment = true;
+        } else if (task.taskGivenBy === userEmail) {
+            canComment = true;
+        }
+
+        if (!canComment) {
+            return res.status(403).json({ error: 'Not authorized to comment on this task' });
+        }
+
+        const newComment = {
+            text,
+            createdBy: req.user._id,
+            createdByName: req.user.name,
+            userRole: req.user.role?.displayName || userRoleName,
+            createdAt: new Date()
+        };
+
+        task.comments.push(newComment);
+        await task.save();
+
+        // Return the full task with populated fields
+        const updatedTask = await Task.findById(task._id)
+            .populate('createdBy assignedTo approvedBy', 'name email role')
+            .populate('comments.createdBy', 'name role');
+
+        res.json({
+            success: true,
+            task: updatedTask
+        });
+    } catch (error) {
+        console.error('Add comment error:', error);
+        res.status(500).json({ error: 'Server error' });
     }
 };

@@ -6,18 +6,20 @@ import {
     updateRole,
     deleteRole,
 } from '../controllers/roleController.js';
-import { protect, checkPermission } from '../middleware/auth.js';
+import { protect } from '../middleware/auth.js';
+import isSuperAdmin from '../middleware/isSuperAdmin.js';
 
 const router = express.Router();
 
-// All routes are protected
+// All routes are protected and require super admin access
 router.use(protect);
+router.use(isSuperAdmin);
 
-// Role routes
-router.get('/', checkPermission('viewRoles'), getRoles);
-router.get('/:id', checkPermission('viewRoles'), getRoleById);
-router.post('/', checkPermission('createRoles'), createRole);
-router.put('/:id', checkPermission('editRoles'), updateRole);
-router.delete('/:id', checkPermission('deleteRoles'), deleteRole);
+// Role routes - Only accessible by super admins
+router.get('/', getRoles);
+router.get('/:id', getRoleById);
+router.post('/', createRole);
+router.put('/:id', updateRole);
+router.delete('/:id', deleteRole);
 
 export default router;

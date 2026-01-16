@@ -108,7 +108,7 @@ export const register = async (req, res) => {
             whatsapp,
             password,
             role: role || 'Staff',
-            department: department || null,
+            department: department && department !== '' ? department : null,
         });
 
         // Generate token

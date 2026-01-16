@@ -134,9 +134,12 @@ export const updateUser = async (req, res) => {
         if (email) user.email = email;
         if (whatsapp) user.whatsapp = whatsapp;
         if (role) user.role = role;
-        if (department !== undefined && currentUserLevel >= 3) {
-            // Only Director/GM can change departments
-            user.department = department;
+
+        // Handle department updates
+        const currentRoleName = typeof currentUserRole === 'string' ? currentUserRole : currentUserRole?.name;
+        if (department !== undefined && (currentUserLevel >= 3 || currentRoleName === 'superadmin')) {
+            // Director/GM/SuperAdmin can change departments
+            user.department = department && department !== '' ? department : null;
         }
 
         await user.save();
@@ -207,11 +210,46 @@ export const getAvailableRoles = async (req, res) => {
     try {
         const currentUserRole = req.user.role;
         const currentUserLevel = currentUserRole?.level || 0;
+        const currentRoleName = typeof currentUserRole === 'string' ? currentUserRole : currentUserRole?.name;
 
-        // Get all roles with level lower than current user's level
-        const availableRoles = await Role.find({
-            level: { $lt: currentUserLevel }
-        }).select('name displayName level description').sort({ level: -1 });
+        let availableRoles;
+
+        // Super admin can assign any role (including director, GM, manager, staff)
+        if (currentRoleName === 'superadmin') {
+            availableRoles = await Role.find({
+                name: { $in: ['director', 'generalmanager', 'manager', 'staff'] }
+            })
+                .select('name displayName level description')
+                .sort({ level: -1 });
+        }
+        // Director can create: GM, Manager, Staff (level < 4)
+        else if (currentRoleName === 'director' || currentUserLevel === 4) {
+            availableRoles = await Role.find({
+                name: { $in: ['generalmanager', 'manager', 'staff'] }
+            })
+                .select('name displayName level description')
+                .sort({ level: -1 });
+        }
+        // General Manager can create: Manager, Staff (level < 3)
+        else if (currentRoleName === 'generalmanager' || currentUserLevel === 3) {
+            availableRoles = await Role.find({
+                name: { $in: ['manager', 'staff'] }
+            })
+                .select('name displayName level description')
+                .sort({ level: -1 });
+        }
+        // Manager can create: Staff only (level < 2)
+        else if (currentRoleName === 'manager' || currentUserLevel === 2) {
+            availableRoles = await Role.find({
+                name: 'staff'
+            })
+                .select('name displayName level description')
+                .sort({ level: -1 });
+        }
+        // Staff cannot create users
+        else {
+            availableRoles = [];
+        }
 
         res.json({
             success: true,

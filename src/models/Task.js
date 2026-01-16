@@ -71,6 +71,36 @@ const taskSchema = new mongoose.Schema(
             type: Boolean,
             default: false,
         },
+        taskGivenBy: {
+            type: String,
+            default: '', // Email of person who gave/requested the task
+        },
+        taskGivenByName: {
+            type: String,
+            default: '', // Name of person who gave/requested the task
+        },
+        comments: [{
+            text: {
+                type: String,
+                required: true,
+            },
+            createdBy: {
+                type: mongoose.Schema.Types.ObjectId,
+                ref: 'User',
+                required: true,
+            },
+            createdByName: {
+                type: String,
+                required: true,
+            },
+            userRole: {
+                type: String, // 'Director', 'Manager', etc. for display context
+            },
+            createdAt: {
+                type: Date,
+                default: Date.now,
+            },
+        }],
     },
     {
         timestamps: true,

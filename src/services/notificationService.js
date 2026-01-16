@@ -1,5 +1,4 @@
 import nodemailer from 'nodemailer';
-import twilio from 'twilio';
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
@@ -18,16 +17,13 @@ const createEmailTransporter = () => {
     });
 };
 
-// Twilio WhatsApp client (optional)
-const twilioClient = process.env.TWILIO_ACCOUNT_SID && process.env.TWILIO_AUTH_TOKEN
-    ? twilio(process.env.TWILIO_ACCOUNT_SID, process.env.TWILIO_AUTH_TOKEN)
-    : null;
-
-// WhatsApp Business API configuration (alternative to Twilio)
-const whatsappBusinessConfig = {
-    apiUrl: process.env.WHATSAPP_API_URL, // e.g., https://graph.facebook.com/v18.0/YOUR_PHONE_NUMBER_ID/messages
-    accessToken: process.env.WHATSAPP_ACCESS_TOKEN,
-    phoneNumberId: process.env.WHATSAPP_PHONE_NUMBER_ID,
+// Helper to get WhatsApp config (lazily evaluated to ensure env vars are loaded)
+const getWhatsappConfig = () => {
+    return {
+        apiUrl: process.env.WHATSAPP_API_URL || (process.env.WHATSAPP_PHONE_NUMBER_ID ? `https://graph.facebook.com/v18.0/${process.env.WHATSAPP_PHONE_NUMBER_ID}/messages` : undefined),
+        accessToken: process.env.WHATSAPP_ACCESS_TOKEN,
+        phoneNumberId: process.env.WHATSAPP_PHONE_NUMBER_ID,
+    };
 };
 
 // Load email template
@@ -76,11 +72,12 @@ export const sendEmail = async (to, subject, templateName, data) => {
 
 // Send WhatsApp via Business API with Template
 const sendWhatsAppBusinessAPITemplate = async (to, templateName, languageCode, parameters) => {
+    const config = getWhatsappConfig();
     try {
-        const response = await fetch(whatsappBusinessConfig.apiUrl, {
+        const response = await fetch(config.apiUrl, {
             method: 'POST',
             headers: {
-                'Authorization': `Bearer ${whatsappBusinessConfig.accessToken}`,
+                'Authorization': `Bearer ${config.accessToken}`,
                 'Content-Type': 'application/json',
             },
             body: JSON.stringify({
@@ -122,11 +119,12 @@ const sendWhatsAppBusinessAPITemplate = async (to, templateName, languageCode, p
 
 // Send WhatsApp via Business API (plain text - fallback)
 const sendWhatsAppBusinessAPI = async (to, message) => {
+    const config = getWhatsappConfig();
     try {
-        const response = await fetch(whatsappBusinessConfig.apiUrl, {
+        const response = await fetch(config.apiUrl, {
             method: 'POST',
             headers: {
-                'Authorization': `Bearer ${whatsappBusinessConfig.accessToken}`,
+                'Authorization': `Bearer ${config.accessToken}`,
                 'Content-Type': 'application/json',
             },
             body: JSON.stringify({
@@ -154,37 +152,13 @@ const sendWhatsAppBusinessAPI = async (to, message) => {
     }
 };
 
-// Send WhatsApp via Twilio
-const sendWhatsAppTwilio = async (to, message) => {
-    try {
-        const whatsappNumber = to.startsWith('+') ? `whatsapp:${to}` : `whatsapp:+${to}`;
-        const fromNumber = process.env.TWILIO_WHATSAPP_FROM;
-
-        const twilioMessage = await twilioClient.messages.create({
-            body: message,
-            from: fromNumber,
-            to: whatsappNumber,
-        });
-
-        console.log('WhatsApp sent via Twilio:', twilioMessage.sid);
-        return { success: true, messageId: twilioMessage.sid };
-    } catch (error) {
-        console.error('Twilio WhatsApp error:', error);
-        return { success: false, error: error.message };
-    }
-};
-
-// Send WhatsApp (auto-detect provider)
+// Send WhatsApp (Business API Only)
 export const sendWhatsApp = async (to, message) => {
+    const config = getWhatsappConfig();
     try {
         // Check if WhatsApp Business API is configured
-        if (whatsappBusinessConfig.apiUrl && whatsappBusinessConfig.accessToken) {
+        if (config.apiUrl && config.accessToken) {
             return await sendWhatsAppBusinessAPI(to, message);
-        }
-
-        // Fall back to Twilio if configured
-        if (twilioClient) {
-            return await sendWhatsAppTwilio(to, message);
         }
 
         console.log('WhatsApp not configured, skipping WhatsApp notification');
@@ -197,9 +171,10 @@ export const sendWhatsApp = async (to, message) => {
 
 // Send WhatsApp Template (for Business API)
 export const sendWhatsAppTemplate = async (to, templateName, parameters, languageCode = 'en') => {
+    const config = getWhatsappConfig();
     try {
         // Only Business API supports templates
-        if (whatsappBusinessConfig.apiUrl && whatsappBusinessConfig.accessToken) {
+        if (config.apiUrl && config.accessToken) {
             return await sendWhatsAppBusinessAPITemplate(to, templateName, languageCode, parameters);
         }
 
@@ -232,19 +207,22 @@ export const notifyTaskAssigned = async (task, assignedUser, createdByUser) => {
     const whatsappMessage = `🔔 *New Task Assigned*\n\n📋 *Task*: ${task.task}\n👤 *Assigned by*: ${createdByUser.name}\n📅 *Due*: ${emailData.dueDate}\n⚡ *Priority*: ${task.priority}\n\nView details: ${emailData.taskLink}`;
 
     // Send email
-    await sendEmail(
+    const emailResult = await sendEmail(
         assignedUser.email,
         `New Task Assigned: ${task.task}`,
         'taskAssigned',
         emailData
     );
 
+    let whatsappResult = { success: false, message: 'WhatsApp not configured or user has no number' };
+
     // Send WhatsApp if user has WhatsApp number
     if (assignedUser.whatsapp) {
-        // Use template if configured, otherwise fallback to plain text
+        const config = getWhatsappConfig();
+        // Use template if configured AND Business API is available, otherwise fallback to plain text
         const templateName = process.env.WHATSAPP_TEMPLATE_TASK_ASSIGNED;
-        if (templateName) {
-            await sendWhatsAppTemplate(
+        if (templateName && config.apiUrl && config.accessToken) {
+            whatsappResult = await sendWhatsAppTemplate(
                 assignedUser.whatsapp,
                 templateName,
                 [
@@ -257,9 +235,11 @@ export const notifyTaskAssigned = async (task, assignedUser, createdByUser) => {
                 'en'
             );
         } else {
-            await sendWhatsApp(assignedUser.whatsapp, whatsappMessage);
+            whatsappResult = await sendWhatsApp(assignedUser.whatsapp, whatsappMessage);
         }
     }
+
+    return { email: emailResult, whatsapp: whatsappResult };
 };
 
 export const notifyStatusChanged = async (task, assignedUser, createdByUser, newStatus) => {
@@ -286,9 +266,10 @@ export const notifyStatusChanged = async (task, assignedUser, createdByUser, new
 
     // Send WhatsApp if user has WhatsApp number
     if (createdByUser.whatsapp) {
-        // Use template if configured, otherwise fallback to plain text
+        const config = getWhatsappConfig();
+        // Use template if configured AND Business API is available, otherwise fallback to plain text
         const templateName = process.env.WHATSAPP_TEMPLATE_STATUS_UPDATED;
-        if (templateName) {
+        if (templateName && config.apiUrl && config.accessToken) {
             await sendWhatsAppTemplate(
                 createdByUser.whatsapp,
                 templateName,
@@ -332,9 +313,10 @@ export const notifyTaskApproved = async (task, assignedUser, approvedByUser) => 
 
     // Send WhatsApp if user has WhatsApp number
     if (assignedUser.whatsapp) {
-        // Use template if configured, otherwise fallback to plain text
+        const config = getWhatsappConfig();
+        // Use template if configured AND Business API is available, otherwise fallback to plain text
         const templateName = process.env.WHATSAPP_TEMPLATE_TASK_APPROVED;
-        if (templateName) {
+        if (templateName && config.apiUrl && config.accessToken) {
             await sendWhatsAppTemplate(
                 assignedUser.whatsapp,
                 templateName,
@@ -379,9 +361,10 @@ export const notifyTaskRejected = async (task, assignedUser, rejectedByUser, rea
 
     // Send WhatsApp if user has WhatsApp number
     if (assignedUser.whatsapp) {
-        // Use template if configured, otherwise fallback to plain text
+        const config = getWhatsappConfig();
+        // Use template if configured AND Business API is available, otherwise fallback to plain text
         const templateName = process.env.WHATSAPP_TEMPLATE_TASK_REJECTED;
-        if (templateName) {
+        if (templateName && config.apiUrl && config.accessToken) {
             await sendWhatsAppTemplate(
                 assignedUser.whatsapp,
                 templateName,

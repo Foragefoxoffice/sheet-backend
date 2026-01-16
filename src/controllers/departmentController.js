@@ -8,13 +8,24 @@ export const getDepartments = async (req, res) => {
     try {
         const departments = await Department.find()
             .populate('manager', 'name email role')
-            .populate('members', 'name email role')
             .sort({ createdAt: -1 });
+
+        // Count members for each department by querying users
+        const departmentsWithCounts = await Promise.all(
+            departments.map(async (dept) => {
+                const memberCount = await User.countDocuments({ department: dept._id });
+                return {
+                    ...dept.toObject(),
+                    members: [], // Keep empty array for compatibility
+                    memberCount, // Add actual count
+                };
+            })
+        );
 
         res.json({
             success: true,
-            count: departments.length,
-            departments,
+            count: departmentsWithCounts.length,
+            departments: departmentsWithCounts,
         });
     } catch (error) {
         console.error('Get departments error:', error);
