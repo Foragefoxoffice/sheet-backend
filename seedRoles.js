@@ -7,11 +7,53 @@ dotenv.config();
 
 const defaultRoles = [
     {
+        name: 'superadmin',
+        displayName: 'Super Admin',
+        description: 'Super Administrator with full system access including role management. This role cannot be edited or deleted.',
+        level: 5, // Highest level
+        isSystem: true,
+        isStatic: true, // Cannot be edited or deleted
+        permissions: {
+            viewUsers: true,
+            createUsers: true,
+            editUsers: true,
+            deleteUsers: true,
+            viewDepartments: true,
+            createDepartments: true,
+            editDepartments: true,
+            deleteDepartments: true,
+            viewAllTasks: true,
+            createTasks: true,
+            editOwnTasks: true,
+            editAllTasks: true,
+            deleteOwnTasks: true,
+            deleteAllTasks: true,
+            viewApprovals: true,
+            approveRejectTasks: true,
+            viewReports: true,
+            downloadReports: true,
+            viewRoles: true,
+            createRoles: true,
+            editRoles: true,
+            deleteRoles: true,
+            // Filter Permissions
+            filterIAssignedDepartment: true,
+            filterIAssignedPriority: true,
+            filterIAssignedRole: true,
+            filterIAssignedUser: true,
+            filterSelfTasksDepartment: true,
+            filterSelfTasksPriority: true,
+            filterSelfTasksRole: true,
+            filterSelfTasksUser: true,
+        },
+    },
+    {
         name: 'director',
         displayName: 'Director',
         description: 'Full system access with all permissions',
-        level: 4, // Highest level
+        level: 4,
         isSystem: true,
+        isStatic: false, // Can be edited/deleted
         permissions: {
             viewUsers: true,
             createUsers: true,
@@ -43,6 +85,7 @@ const defaultRoles = [
         description: 'Full system access with all permissions',
         level: 3,
         isSystem: true,
+        isStatic: false, // Can be edited/deleted
         permissions: {
             viewUsers: true,
             createUsers: true,
@@ -74,6 +117,7 @@ const defaultRoles = [
         description: 'Can manage users in their department and handle tasks',
         level: 2,
         isSystem: true,
+        isStatic: false, // Can be edited/deleted
         permissions: {
             viewUsers: true,
             createUsers: true, // Can create users in their department
@@ -105,6 +149,7 @@ const defaultRoles = [
         description: 'Task management access only',
         level: 1, // Lowest level
         isSystem: true,
+        isStatic: false, // Can be edited/deleted
         permissions: {
             viewUsers: false,      // No user access
             createUsers: false,    // No user access
@@ -152,10 +197,12 @@ const seedRoles = async () => {
 
         console.log('\n✅ Default roles seeded successfully!');
         console.log('\n📊 Role Hierarchy:');
+        console.log('Level 5: Super Admin (STATIC - cannot be edited/deleted, full access)');
         console.log('Level 4: Director (can create all roles)');
         console.log('Level 3: General Manager (can create Manager & Staff)');
         console.log('Level 2: Manager (can create Staff only)');
         console.log('Level 1: Staff (cannot create users)');
+        console.log('\n⚠️  Note: All roles except Super Admin can be edited or deleted through the UI');
 
         process.exit(0);
     } catch (error) {

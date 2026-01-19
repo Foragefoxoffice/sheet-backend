@@ -67,19 +67,21 @@ const sendDailyReminderToUser = async (user, tasks) => {
         // Send WhatsApp if configured
         if (user.whatsapp) {
             // Use template if configured, otherwise fallback to plain text
-            const templateName = process.env.WHATSAPP_TEMPLATE_DAILY_REMINDER;
+            const templateName = 'task_reminder_system_notification';
             if (templateName) {
                 const { sendWhatsAppTemplate } = await import('./notificationService.js');
 
-                // Format task summary for template (only 3 parameters: name, count, task list)
-                // Template format: "1. Task - Priority, 2. Task - Priority, 3. Task - Priority"
-                const taskList = tasks.slice(0, 3).map((task, index) =>
+                // Format task summary for template ({{3}} - List)
+                // New format: Line separated list
+                // 1. Task Name - Priority
+                // 2. Task Name - Priority
+                const taskList = tasks.slice(0, 5).map((task, index) =>
                     `${index + 1}. ${task.task} - ${task.priority}`
-                ).join(', ');
+                ).join('\n');
 
                 // Add more tasks indicator if needed
-                const fullTaskList = tasks.length > 3
-                    ? `${taskList}, and ${tasks.length - 3} more`
+                const fullTaskList = tasks.length > 5
+                    ? `${taskList}\n...and ${tasks.length - 5} more`
                     : taskList;
 
                 await sendWhatsAppTemplate(
@@ -88,7 +90,7 @@ const sendDailyReminderToUser = async (user, tasks) => {
                     [
                         user.name,                    // {{1}} - User name
                         tasks.length.toString(),      // {{2}} - Task count
-                        fullTaskList                  // {{3}} - Task list
+                        fullTaskList                  // {{3}} - List
                     ],
                     'en'
                 );

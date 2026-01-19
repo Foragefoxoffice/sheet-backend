@@ -92,13 +92,34 @@ export const getCurrentUser = async (req, res) => {
 // @access  Public (should be protected in production)
 export const register = async (req, res) => {
     try {
-        const { name, email, whatsapp, password, role, department } = req.body;
+        const { name, email, whatsapp, password, role, department, designation } = req.body;
 
         // Check if user exists
         const userExists = await User.findOne({ $or: [{ email }, { whatsapp }] });
 
         if (userExists) {
-            return res.status(400).json({ error: 'User already exists' });
+            return res.status(400).json({ error: 'User with this email or WhatsApp number already exists' });
+        }
+
+        // If request has a user (authenticated), validate role hierarchy using managedRoles
+        if (req.user && role) {
+            const Role = (await import('../models/Role.js')).default;
+            const assignedRole = await Role.findById(role);
+            const currentUserRole = await Role.findById(req.user.role._id || req.user.role).populate('managedRoles');
+
+            if (assignedRole && currentUserRole) {
+                // Check if the assigned role is in the current user's managedRoles
+                const canAssignRole = currentUserRole.managedRoles.some(
+                    managedRole => managedRole._id.toString() === assignedRole._id.toString()
+                );
+
+                if (!canAssignRole) {
+                    const allowedRoleNames = currentUserRole.managedRoles.map(r => r.displayName).join(', ');
+                    return res.status(403).json({
+                        error: `You cannot assign the "${assignedRole.displayName}" role. You can only assign: ${allowedRoleNames || 'No roles'}`
+                    });
+                }
+            }
         }
 
         // Create user

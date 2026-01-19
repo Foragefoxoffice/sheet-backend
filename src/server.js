@@ -11,6 +11,7 @@ import reportRoutes from "./routes/reports.js";
 import departmentRoutes from "./routes/departments.js";
 import userRoutes from "./routes/users.js";
 import roleRoutes from "./routes/roles.js";
+import passwordResetRoutes from "./routes/passwordReset.js";
 
 dotenv.config();
 // Connect to database - will be cached in serverless environment
@@ -23,6 +24,7 @@ app.use(
         origin: [
             "https://sheet-frontend-lemon.vercel.app",
             "https://sheet-backend-orpin.vercel.app",
+            "https://placetest.in",
             "http://localhost:5173",
             "http://localhost:5174",
             "http://localhost:5714"
@@ -105,6 +107,7 @@ app.use("/api/reports", reportRoutes);
 app.use("/api/departments", departmentRoutes);
 app.use("/api/users", userRoutes);
 app.use("/api/roles", roleRoutes);
+app.use("/api/password-reset", passwordResetRoutes);
 
 app.use(notFound);
 app.use(errorHandler);

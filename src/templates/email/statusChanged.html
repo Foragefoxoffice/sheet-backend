@@ -27,52 +27,21 @@
                     <tr>
                         <td style="padding: 40px 30px;">
                             <p style="margin: 0 0 20px; font-size: 16px; line-height: 1.6; color: #333333;">
-                                Hi <strong>{{userName}}</strong>,
+                                Hello <strong>{{userName}}</strong>,
+                            </p>
+                            <p style="margin: 0 0 20px; font-size: 16px; line-height: 1.6; color: #555555;">
+                                This is an update regarding a task assigned to you.
                             </p>
                             <p style="margin: 0 0 30px; font-size: 16px; line-height: 1.6; color: #555555;">
-                                <strong>{{assignedTo}}</strong> has updated the status of a task you assigned:
+                                The task number: <strong>#{{taskNumber}}</strong>,<br>
+                                Titled: <strong>{{taskTitle}}</strong>, has had its status updated.<br>
+                                The update was made by <strong>{{assignedTo}}</strong>, and the new status is
+                                <strong style="color: {{statusColor}};">{{newStatus}}</strong>.
                             </p>
 
-                            <!-- Task Card -->
-                            <table role="presentation"
-                                style="width: 100%; border-collapse: collapse; background-color: #f8f9fa; border-radius: 8px; overflow: hidden; margin-bottom: 30px;">
-                                <tr>
-                                    <td style="padding: 25px;">
-                                        <div style="margin-bottom: 15px;">
-                                            <span
-                                                style="display: inline-block; background-color: #667eea; color: #ffffff; padding: 4px 12px; border-radius: 12px; font-size: 12px; font-weight: 600;">
-                                                #{{taskNumber}}
-                                            </span>
-                                        </div>
-
-                                        <h2
-                                            style="margin: 0 0 20px; font-size: 20px; color: #1f2937; font-weight: 600;">
-                                            {{taskTitle}}
-                                        </h2>
-
-                                        <div
-                                            style="text-align: center; padding: 20px; background-color: #ffffff; border-radius: 6px; margin-bottom: 20px;">
-                                            <p style="margin: 0 0 10px; font-size: 14px; color: #6b7280;">New Status</p>
-                                            <span
-                                                style="display: inline-block; background-color: {{statusColor}}; color: #ffffff; padding: 8px 24px; border-radius: 20px; font-size: 16px; font-weight: 600;">
-                                                {{newStatus}}
-                                            </span>
-                                        </div>
-
-                                        <table role="presentation" style="width: 100%; border-collapse: collapse;">
-                                            <tr>
-                                                <td style="padding: 8px 0; font-size: 14px; color: #6b7280;">
-                                                    <strong style="color: #374151;">👤 Updated By:</strong>
-                                                </td>
-                                                <td
-                                                    style="padding: 8px 0; font-size: 14px; color: #1f2937; text-align: right;">
-                                                    {{assignedTo}}
-                                                </td>
-                                            </tr>
-                                        </table>
-                                    </td>
-                                </tr>
-                            </table>
+                            <p style="margin: 0 0 20px; font-size: 16px; line-height: 1.6; color: #555555;">
+                                Please check the application for complete details regarding this update.
+                            </p>
 
                             <!-- CTA Button -->
                             <table role="presentation" style="width: 100%; border-collapse: collapse;">

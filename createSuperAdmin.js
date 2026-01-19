@@ -20,6 +20,7 @@ const createSuperAdmin = async () => {
                 name: 'superadmin',
                 displayName: 'Super Admin',
                 description: 'Super Administrator with full system access including role management',
+                level: 5,
                 permissions: {
                     viewUsers: true,
                     createUsers: true,
@@ -29,13 +30,32 @@ const createSuperAdmin = async () => {
                     createDepartments: true,
                     editDepartments: true,
                     deleteDepartments: true,
+                    viewAllTasks: true,
+                    createTasks: true,
+                    editOwnTasks: true,
+                    editAllTasks: true,
+                    deleteOwnTasks: true,
+                    deleteAllTasks: true,
+                    viewApprovals: true,
+                    approveRejectTasks: true,
+                    viewReports: true,
+                    downloadReports: true,
                     viewRoles: true,
                     createRoles: true,
                     editRoles: true,
                     deleteRoles: true,
-                    viewReports: true,
+                    // Filter Permissions
+                    filterIAssignedDepartment: true,
+                    filterIAssignedPriority: true,
+                    filterIAssignedRole: true,
+                    filterIAssignedUser: true,
+                    filterSelfTasksDepartment: true,
+                    filterSelfTasksPriority: true,
+                    filterSelfTasksRole: true,
+                    filterSelfTasksUser: true,
                 },
                 isSystem: true,
+                isStatic: true, // Cannot be edited or deleted
             });
             console.log('✓ SuperAdmin role created');
         } else {

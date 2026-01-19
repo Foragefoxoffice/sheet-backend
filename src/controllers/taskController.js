@@ -23,10 +23,44 @@ export const createTask = async (req, res) => {
         }
 
         // Find assigned user
-        const assignedUser = await User.findOne({ email: assignedToEmail });
+        const assignedUser = await User.findOne({ email: assignedToEmail }).populate('role');
 
         if (!assignedUser) {
             return res.status(404).json({ error: 'Assigned user not found' });
+        }
+
+        // Validate role-based assignment permissions (unless self-task)
+        if (!isSelfTask && assignedUser._id.toString() !== req.user._id.toString()) {
+            const Role = (await import('../models/Role.js')).default;
+            const currentUserRole = await Role.findById(req.user.role._id || req.user.role)
+                .populate('managedRoles');
+            const assignedUserRole = typeof assignedUser.role === 'object' ? assignedUser.role :
+                await Role.findById(assignedUser.role);
+
+            if (!assignedUserRole) {
+                return res.status(404).json({ error: 'Assigned user role not found' });
+            }
+
+            // Super Admin can assign to anyone except Super Admin
+            if (currentUserRole.name === 'superadmin') {
+                if (assignedUserRole.name === 'superadmin') {
+                    return res.status(403).json({
+                        error: 'Cannot assign tasks to Super Admin users'
+                    });
+                }
+            }
+            // Others can only assign to roles in their managedRoles
+            else {
+                const canAssign = currentUserRole.managedRoles.some(
+                    role => role._id.toString() === assignedUserRole._id.toString()
+                );
+
+                if (!canAssign) {
+                    return res.status(403).json({
+                        error: `You cannot assign tasks to users with "${assignedUserRole.displayName}" role. Check your role's managed roles permissions.`
+                    });
+                }
+            }
         }
 
         // Find task giver if provided
@@ -90,7 +124,16 @@ export const getTasks = async (req, res) => {
             assignedToEmail: userEmail,
             createdByEmail: { $ne: userEmail }, // Not created by themselves
         })
-            .populate('createdBy assignedTo', 'name email role')
+            .populate({
+                path: 'createdBy',
+                select: 'name email role designation',
+                populate: { path: 'role', select: 'displayName' }
+            })
+            .populate({
+                path: 'assignedTo',
+                select: 'name email role designation',
+                populate: { path: 'role', select: 'displayName' }
+            })
             .sort({ createdAt: -1 });
 
         res.json({
@@ -113,7 +156,16 @@ export const getSelfTasks = async (req, res) => {
             assignedToEmail: req.user.email,
             isSelfTask: true,
         })
-            .populate('createdBy assignedTo', 'name email role')
+            .populate({
+                path: 'createdBy',
+                select: 'name email role designation',
+                populate: { path: 'role', select: 'displayName' }
+            })
+            .populate({
+                path: 'assignedTo',
+                select: 'name email role designation',
+                populate: { path: 'role', select: 'displayName' }
+            })
             .sort({ createdAt: -1 });
 
         res.json({
@@ -136,7 +188,23 @@ export const getAssignedTasks = async (req, res) => {
             createdByEmail: req.user.email,
             assignedToEmail: { $ne: req.user.email }, // Not assigned to themselves
         })
-            .populate('createdBy assignedTo', 'name email role')
+            .populate({
+                path: 'createdBy',
+                select: 'name email role designation department whatsapp',
+                populate: { path: 'role', select: 'displayName' }
+            })
+            .populate({
+                path: 'assignedTo',
+                select: 'name email role designation department whatsapp',
+                populate: [
+                    { path: 'role', select: 'displayName' },
+                    { path: 'department', select: 'name' }
+                ]
+            })
+            .populate({
+                path: 'approvedBy',
+                select: 'name email'
+            })
             .sort({ createdAt: -1 });
 
         res.json({
@@ -149,30 +217,54 @@ export const getAssignedTasks = async (req, res) => {
     }
 };
 
-
 // @desc    Get all tasks (role-based filtering)
 // @route   GET /api/tasks/all
 // @access  Private
 export const getAllTasks = async (req, res) => {
     try {
-        const userRoleName = req.user.role?.name || req.user.role;
         const userDepartment = req.user.department;
+
+        // Fetch full role with permissions
+        const Role = (await import('../models/Role.js')).default;
+        const currentUserRole = await Role.findById(req.user.role._id || req.user.role);
+
+        const hasViewAll = currentUserRole?.permissions?.viewAllTasks;
+        const hasViewDepartment = currentUserRole?.permissions?.viewDepartmentTasks;
 
         let tasks;
 
-        // Director and GM see ALL tasks from all departments
-        if (userRoleName === 'director' || userRoleName === 'generalmanager') {
+        // View All Tasks permission (e.g. Director, GM)
+        if (hasViewAll) {
             tasks = await Task.find()
-                .populate('createdBy assignedTo', 'name email role department')
+                .populate({
+                    path: 'createdBy',
+                    select: 'name email role designation department whatsapp',
+                    populate: [
+                        { path: 'role', select: 'displayName' },
+                        { path: 'department', select: 'name' }
+                    ]
+                })
+                .populate({
+                    path: 'assignedTo',
+                    select: 'name email role designation department whatsapp',
+                    populate: [
+                        { path: 'role', select: 'displayName' },
+                        { path: 'department', select: 'name' }
+                    ]
+                })
+                .populate({
+                    path: 'approvedBy',
+                    select: 'name email'
+                })
                 .sort({ createdAt: -1 });
         }
-        // Manager sees tasks of staff in their department
-        else if (userRoleName === 'manager') {
+        // View Department Tasks permission (e.g. Manager)
+        else if (hasViewDepartment) {
             if (!userDepartment) {
-                // Manager without department sees nothing
+                // User has permission but no department assigned
                 tasks = [];
             } else {
-                // Get all users in manager's department
+                // Get all users in the same department
                 const departmentUsers = await User.find({ department: userDepartment }).select('email');
                 const departmentEmails = departmentUsers.map(u => u.email);
 
@@ -180,11 +272,21 @@ export const getAllTasks = async (req, res) => {
                 tasks = await Task.find({
                     assignedToEmail: { $in: departmentEmails }
                 })
-                    .populate('createdBy assignedTo', 'name email role department')
+                    .populate({
+                        path: 'createdBy',
+                        select: 'name email role designation department',
+                        populate: { path: 'role', select: 'displayName' }
+                    })
+                    .populate({
+                        path: 'assignedTo',
+                        select: 'name email role designation department',
+                        populate: { path: 'role', select: 'displayName' }
+                    })
+                    .populate('approvedBy', 'name email role')
                     .sort({ createdAt: -1 });
             }
         }
-        // Staff sees nothing (or could see their own tasks)
+        // No permission to view all or department tasks
         else {
             tasks = [];
         }
@@ -204,7 +306,18 @@ export const getAllTasks = async (req, res) => {
 // @access  Private
 export const getTaskById = async (req, res) => {
     try {
-        const task = await Task.findById(req.params.id).populate('createdBy assignedTo approvedBy', 'name email role');
+        const task = await Task.findById(req.params.id)
+            .populate({
+                path: 'createdBy',
+                select: 'name email role designation',
+                populate: { path: 'role', select: 'displayName' }
+            })
+            .populate({
+                path: 'assignedTo',
+                select: 'name email role designation',
+                populate: { path: 'role', select: 'displayName' }
+            })
+            .populate('approvedBy', 'name email role');
 
         if (!task) {
             return res.status(404).json({ error: 'Task not found' });
@@ -237,52 +350,47 @@ export const updateTaskStatus = async (req, res) => {
             return res.status(404).json({ error: 'Task not found' });
         }
 
-        const userRoleName = req.user.role?.name || req.user.role;
         const userEmail = req.user.email;
 
-        // Check permissions - anyone assigned or any manager/director can update logic, 
-        // but let's keep it simple: Assignee can update, Creator can update, Managers+ can update.
-        // Actually, adhering to "any role user can assign task to anyone", we should be flexible.
-
-        let canUpdate = false;
-
-        // Admin roles
-        if (['director', 'generalmanager', 'manager'].includes(userRoleName)) {
-            canUpdate = true;
-        }
-        // Task Creator
-        else if (task.createdByEmail === userEmail) {
-            canUpdate = true;
-        }
-        // Task Assignee
-        else if (task.assignedToEmail === userEmail) {
-            canUpdate = true;
+        // Only the assigned user can change the task status
+        if (task.assignedToEmail !== userEmail) {
+            return res.status(403).json({ error: 'Only the assigned user can update task status' });
         }
 
-        if (!canUpdate) {
-            return res.status(403).json({ error: 'Not authorized to update this task' });
+        // Validate allowed status values
+        const allowedStatuses = ['Pending', 'In Progress', 'Waiting for Approval', 'Completed'];
+        if (!allowedStatuses.includes(status)) {
+            return res.status(400).json({ error: 'Invalid status value' });
+        }
+
+        // Prevent users from directly setting status to 'Completed'
+        // Completed can only be set via approval process
+        if (status === 'Completed') {
+            return res.status(403).json({
+                error: 'Tasks must be approved by the task creator to be marked as Completed. Please set status to "Waiting for Approval" instead.'
+            });
         }
 
         // Update status
         task.status = status;
 
         // Handle Approval Workflow
-        if (status === 'Completed') {
-            // When marked completed, it goes to Pending Approval
+        if (status === 'Waiting for Approval') {
+            // When marked as waiting for approval, set approval status to Pending
             task.approvalStatus = 'Pending';
             task.approvedBy = undefined;
             task.approvedAt = undefined;
-        } else {
-            // If moved back to In Progress or Pending (e.g. resubmission or mistake), clear approval status
-            task.approvalStatus = undefined;
+        } else if (status === 'In Progress' || status === 'Pending') {
+            // If moved back to In Progress or Pending, set approval status to Pending
+            task.approvalStatus = 'Pending';
             task.approvedBy = undefined;
             task.approvedAt = undefined;
         }
 
         await task.save();
 
-        // Send notification to task creator if status changed to In Progress or Completed
-        if (status === 'In Progress' || status === 'Completed') {
+        // Send notification to task creator if status changed to In Progress or Waiting for Approval
+        if (status === 'In Progress' || status === 'Waiting for Approval') {
             const createdByUser = await User.findOne({ email: task.createdByEmail });
             const assignedToUser = await User.findOne({ email: task.assignedToEmail });
 
@@ -316,13 +424,17 @@ export const updateTask = async (req, res) => {
         }
 
         // Check if user has permission to update
-        const userRoleName = req.user.role?.name || req.user.role;
+        const Role = (await import('../models/Role.js')).default;
+        const currentUserRole = await Role.findById(req.user.role._id || req.user.role);
         const userEmail = req.user.email;
 
         let canUpdate = false;
-        if (userRoleName === 'director' || userRoleName === 'generalmanager') {
+        // Users with editAllTasks permission
+        if (currentUserRole?.permissions?.editAllTasks) {
             canUpdate = true;
-        } else if (task.createdByEmail === userEmail) {
+        }
+        // Task Creator (if they have editOwnTasks permission)
+        else if (task.createdByEmail === userEmail && currentUserRole?.permissions?.editOwnTasks) {
             canUpdate = true;
         }
 
@@ -372,13 +484,17 @@ export const deleteTask = async (req, res) => {
         }
 
         // Check if user has permission to delete
-        const userRoleName = req.user.role?.name || req.user.role;
+        const Role = (await import('../models/Role.js')).default;
+        const currentUserRole = await Role.findById(req.user.role._id || req.user.role);
         const userEmail = req.user.email;
 
         let canDelete = false;
-        if (userRoleName === 'director' || userRoleName === 'generalmanager') {
+        // Users with deleteAllTasks permission
+        if (currentUserRole?.permissions?.deleteAllTasks) {
             canDelete = true;
-        } else if (task.createdByEmail === userEmail) {
+        }
+        // Task Creator (if they have deleteOwnTasks permission)
+        else if (task.createdByEmail === userEmail && currentUserRole?.permissions?.deleteOwnTasks) {
             canDelete = true;
         }
 
@@ -414,13 +530,10 @@ export const addTaskComment = async (req, res) => {
         }
 
         const userEmail = req.user.email;
-        const userRoleName = req.user.role?.name || req.user.role;
 
-        // Check permissions: Creator, Assignee, Giver, or Manager+
+        // Check permissions: Creator, Assignee, or Giver can comment
         let canComment = false;
-        if (['director', 'generalmanager', 'manager'].includes(userRoleName)) {
-            canComment = true;
-        } else if (task.createdByEmail === userEmail) {
+        if (task.createdByEmail === userEmail) {
             canComment = true;
         } else if (task.assignedToEmail === userEmail) {
             canComment = true;

@@ -16,7 +16,7 @@ router.use(protect);
 
 // User CRUD with permission-based access
 router.get('/', checkPermission('viewUsers'), getUsers);
-router.get('/available-roles', checkPermission('createUsers'), getAvailableRoles);
+router.get('/available-roles', getAvailableRoles);
 router.get('/for-tasks', getUsersForTaskAssignment); // No permission required - all users can see this
 router.get('/:id', getUser);
 router.put('/:id', checkPermission('editUsers'), updateUser);

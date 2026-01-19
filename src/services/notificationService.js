@@ -186,7 +186,90 @@ export const sendWhatsAppTemplate = async (to, templateName, parameters, languag
     }
 };
 
+// Send OTP via WhatsApp
+export const sendOTPWhatsApp = async (to, otp) => {
+    const config = getWhatsappConfig();
+    try {
+        const templateName = 'login_vcgreen';
+
+        // Check if WhatsApp API is configured
+        if (!config.apiUrl || !config.accessToken) {
+            console.log('WhatsApp not configured, falling back to plain text');
+            const message = `🔐 *Your VCGreen Task Manager password reset OTP is:*\n\n*${otp}*\n\nThis OTP is valid for 15 minutes.\n\n⚠️ Do not share this code with anyone.`;
+            return await sendWhatsApp(to, message);
+        }
+
+        // Format phone number and OTP
+        const formattedPhone = to.replace(/[^0-9]/g, '');
+        const otpText = String(otp);
+
+        // Build template components
+        const components = [
+            {
+                type: 'body',
+                parameters: [{ type: 'text', text: otpText }]
+            }
+        ];
+
+        // Add URL button parameter if template has button
+        // This fixes the "Required parameter is missing" error
+        components.push({
+            type: 'button',
+            sub_type: 'url',
+            index: '0',
+            parameters: [{ type: 'text', text: otpText }]
+        });
+
+        const payload = {
+            messaging_product: 'whatsapp',
+            to: formattedPhone,
+            type: 'template',
+            template: {
+                name: templateName,
+                language: { code: 'en' },
+                components
+            }
+        };
+
+        // Send template via WhatsApp Business API
+        const response = await fetch(config.apiUrl, {
+            method: 'POST',
+            headers: {
+                'Authorization': `Bearer ${config.accessToken}`,
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(payload)
+        });
+
+        const result = await response.json();
+
+        if (response.ok) {
+            console.log('OTP sent via WhatsApp template:', templateName, result.messages?.[0]?.id);
+            return { success: true, messageId: result.messages?.[0]?.id };
+        } else {
+            console.error('WhatsApp template error:', result);
+            console.log('Falling back to plain text message');
+
+            // Fallback to plain text
+            const message = `🔐 *Your VCGreen Task Manager password reset OTP is:*\n\n*${otp}*\n\nThis OTP is valid for 15 minutes.\n\n⚠️ Do not share this code with anyone.`;
+            return await sendWhatsApp(to, message);
+        }
+    } catch (error) {
+        console.error('OTP WhatsApp sending error:', error);
+
+        // Fallback to plain text on any error
+        try {
+            const message = `🔐 *Your VCGreen Task Manager password reset OTP is:*\n\n*${otp}*\n\nThis OTP is valid for 15 minutes.\n\n⚠️ Do not share this code with anyone.`;
+            return await sendWhatsApp(to, message);
+        } catch (fallbackError) {
+            console.error('Fallback also failed:', fallbackError);
+            return { success: false, error: error.message };
+        }
+    }
+};
+
 // Notification functions for specific events
+
 
 export const notifyTaskAssigned = async (task, assignedUser, createdByUser) => {
     const emailData = {
@@ -199,6 +282,11 @@ export const notifyTaskAssigned = async (task, assignedUser, createdByUser) => {
             month: 'long',
             day: 'numeric'
         }),
+        dueTime: task.targetTime ? new Date(`2000-01-01T${task.targetTime}`).toLocaleTimeString('en-US', {
+            hour: 'numeric',
+            minute: 'numeric',
+            hour12: true
+        }) : '',
         priority: task.priority,
         notes: task.notes || 'No additional notes',
         taskLink: `${process.env.FRONTEND_URL || 'http://localhost:5173'}/tasks`,
@@ -220,17 +308,19 @@ export const notifyTaskAssigned = async (task, assignedUser, createdByUser) => {
     if (assignedUser.whatsapp) {
         const config = getWhatsappConfig();
         // Use template if configured AND Business API is available, otherwise fallback to plain text
-        const templateName = process.env.WHATSAPP_TEMPLATE_TASK_ASSIGNED;
-        if (templateName && config.apiUrl && config.accessToken) {
+        // Use user provided template name
+        const templateName = 'task_assignment_alert';
+        if (config.apiUrl && config.accessToken) {
             whatsappResult = await sendWhatsAppTemplate(
                 assignedUser.whatsapp,
                 templateName,
                 [
-                    assignedUser.name,
-                    task.task,
-                    createdByUser.name,
-                    emailData.dueDate,
-                    task.priority
+                    assignedUser.name,     // {{1}}
+                    task.sno.toString(),   // {{2}}
+                    task.task,             // {{3}}
+                    createdByUser.name,    // {{4}}
+                    emailData.dueDate,     // {{5}}
+                    task.priority          // {{6}}
                 ],
                 'en'
             );
@@ -268,16 +358,18 @@ export const notifyStatusChanged = async (task, assignedUser, createdByUser, new
     if (createdByUser.whatsapp) {
         const config = getWhatsappConfig();
         // Use template if configured AND Business API is available, otherwise fallback to plain text
-        const templateName = process.env.WHATSAPP_TEMPLATE_STATUS_UPDATED;
-        if (templateName && config.apiUrl && config.accessToken) {
+        // Use user provided template name
+        const templateName = 'task_status_change';
+        if (config.apiUrl && config.accessToken) {
             await sendWhatsAppTemplate(
                 createdByUser.whatsapp,
                 templateName,
                 [
-                    createdByUser.name,
-                    task.task,
-                    assignedUser.name,
-                    newStatus
+                    createdByUser.name,    // {{1}}
+                    task.sno.toString(),   // {{2}}
+                    task.task,             // {{3}}
+                    assignedUser.name,     // {{4}} Updated By
+                    newStatus              // {{5}}
                 ],
                 'en'
             );
@@ -315,16 +407,18 @@ export const notifyTaskApproved = async (task, assignedUser, approvedByUser) => 
     if (assignedUser.whatsapp) {
         const config = getWhatsappConfig();
         // Use template if configured AND Business API is available, otherwise fallback to plain text
-        const templateName = process.env.WHATSAPP_TEMPLATE_TASK_APPROVED;
-        if (templateName && config.apiUrl && config.accessToken) {
+        // Use user provided template name
+        const templateName = 'task_approved_notification';
+        if (config.apiUrl && config.accessToken) {
             await sendWhatsAppTemplate(
                 assignedUser.whatsapp,
                 templateName,
                 [
-                    assignedUser.name,
-                    task.task,
-                    approvedByUser.name,
-                    emailData.approvedDate
+                    assignedUser.name,         // {{1}}
+                    task.sno.toString(),       // {{2}}
+                    task.task,                 // {{3}}
+                    approvedByUser.name,       // {{4}}
+                    emailData.approvedDate     // {{5}}
                 ],
                 'en'
             );
@@ -363,16 +457,18 @@ export const notifyTaskRejected = async (task, assignedUser, rejectedByUser, rea
     if (assignedUser.whatsapp) {
         const config = getWhatsappConfig();
         // Use template if configured AND Business API is available, otherwise fallback to plain text
-        const templateName = process.env.WHATSAPP_TEMPLATE_TASK_REJECTED;
-        if (templateName && config.apiUrl && config.accessToken) {
+        // Use user provided template name (assuming Rejected maps to Returned for Revision)
+        const templateName = 'task_returned_for_revision';
+        if (config.apiUrl && config.accessToken) {
             await sendWhatsAppTemplate(
                 assignedUser.whatsapp,
                 templateName,
                 [
-                    assignedUser.name,
-                    task.task,
-                    rejectedByUser.name,
-                    reason || 'No specific reason provided'
+                    assignedUser.name,          // {{1}}
+                    task.sno.toString(),        // {{2}}
+                    task.task,                  // {{3}}
+                    rejectedByUser.name,        // {{4}} (Returned By)
+                    reason || 'Revision Requested' // {{5}} Reason
                 ],
                 'en'
             );
@@ -381,4 +477,3 @@ export const notifyTaskRejected = async (task, assignedUser, rejectedByUser, rea
         }
     }
 };
-

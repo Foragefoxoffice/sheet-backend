@@ -6,21 +6,18 @@ import User from '../models/User.js';
 // @access  Private
 export const getTaskStatistics = async (req, res) => {
     try {
-        const userRole = req.user.role;
+        const Role = (await import('../models/Role.js')).default;
+        const currentUserRole = await Role.findById(req.user.role._id || req.user.role);
         const userEmail = req.user.email;
 
         let filter = {};
 
-        // Filter based on role
-        if (userRole === 'Staff') {
+        // Filter based on permissions
+        // Users without viewReports permission only see their own tasks
+        if (!currentUserRole?.permissions?.viewReports) {
             filter.assignedToEmail = userEmail;
-        } else if (userRole === 'Manager') {
-            // Managers see tasks they created or assigned to them
-            filter = {
-                $or: [{ createdByEmail: userEmail }, { assignedToEmail: userEmail }],
-            };
         }
-        // Director and GeneralManager see all tasks (no filter)
+        // Users with viewReports can see all tasks (no filter)
 
         // Get counts by status
         const statusCounts = await Task.aggregate([
@@ -54,9 +51,9 @@ export const getTaskStatistics = async (req, res) => {
         // Get total tasks
         const totalTasks = await Task.countDocuments(filter);
 
-        // Get pending approvals count (for managers and above)
+        // Get pending approvals count (for users with approval permissions)
         let pendingApprovals = 0;
-        if (['Manager', 'GeneralManager', 'Director'].includes(userRole)) {
+        if (currentUserRole?.permissions?.viewApprovals) {
             pendingApprovals = await Task.countDocuments({
                 status: 'Completed',
                 approvalStatus: 'Pending',
@@ -81,16 +78,9 @@ export const getTaskStatistics = async (req, res) => {
 
 // @desc    Get user reports
 // @route   GET /api/reports/users
-// @access  Private (Manager, GeneralManager, Director)
+// @access  Private (requires viewReports permission)
 export const getUserReports = async (req, res) => {
     try {
-        const userRole = req.user.role;
-
-        // Only managers and above can access user reports
-        if (!['Manager', 'GeneralManager', 'Director'].includes(userRole)) {
-            return res.status(403).json({ error: 'Not authorized to access user reports' });
-        }
-
         // Get all users with their task counts
         const users = await User.find().select('name email role');
 

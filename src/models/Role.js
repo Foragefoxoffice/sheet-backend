@@ -67,6 +67,22 @@ const roleSchema = new mongoose.Schema(
                 type: Boolean,
                 default: false,
             },
+            viewDepartmentTasks: {
+                type: Boolean,
+                default: false,
+            },
+            viewAssignedToMeTasks: {
+                type: Boolean,
+                default: true,
+            },
+            viewIAssignedTasks: {
+                type: Boolean,
+                default: true,
+            },
+            viewSelfTasks: {
+                type: Boolean,
+                default: true,
+            },
             createTasks: {
                 type: Boolean,
                 default: true, // Everyone can create tasks
@@ -84,6 +100,97 @@ const roleSchema = new mongoose.Schema(
                 default: false,
             },
             deleteAllTasks: {
+                type: Boolean,
+                default: false,
+            },
+
+            // Tab-Specific Filter Visibility Permissions
+            // All Tasks Tab Filters
+            filterAllTasksDepartment: {
+                type: Boolean,
+                default: false,
+            },
+            filterAllTasksPriority: {
+                type: Boolean,
+                default: true,
+            },
+            filterAllTasksRole: {
+                type: Boolean,
+                default: false,
+            },
+            filterAllTasksUser: {
+                type: Boolean,
+                default: false,
+            },
+
+            // Department Tasks Tab Filters
+            filterDeptTasksDepartment: {
+                type: Boolean,
+                default: false,
+            },
+            filterDeptTasksPriority: {
+                type: Boolean,
+                default: true,
+            },
+            filterDeptTasksRole: {
+                type: Boolean,
+                default: false,
+            },
+            filterDeptTasksUser: {
+                type: Boolean,
+                default: false,
+            },
+
+            // Assigned to Me Tab Filters
+            filterAssignedToMeDepartment: {
+                type: Boolean,
+                default: false,
+            },
+            filterAssignedToMePriority: {
+                type: Boolean,
+                default: true,
+            },
+            filterAssignedToMeRole: {
+                type: Boolean,
+                default: false,
+            },
+            filterAssignedToMeUser: {
+                type: Boolean,
+                default: false,
+            },
+
+            // I Assigned Tab Filters
+            filterIAssignedDepartment: {
+                type: Boolean,
+                default: false,
+            },
+            filterIAssignedPriority: {
+                type: Boolean,
+                default: true,
+            },
+            filterIAssignedRole: {
+                type: Boolean,
+                default: false,
+            },
+            filterIAssignedUser: {
+                type: Boolean,
+                default: false,
+            },
+
+            // Self Tasks Tab Filters
+            filterSelfTasksDepartment: {
+                type: Boolean,
+                default: false,
+            },
+            filterSelfTasksPriority: {
+                type: Boolean,
+                default: true,
+            },
+            filterSelfTasksRole: {
+                type: Boolean,
+                default: false,
+            },
+            filterSelfTasksUser: {
                 type: Boolean,
                 default: false,
             },
@@ -126,9 +233,18 @@ const roleSchema = new mongoose.Schema(
                 default: false,
             },
         },
+        managedRoles: [{
+            type: mongoose.Schema.Types.ObjectId,
+            ref: 'Role'
+        }],
         isSystem: {
             type: Boolean,
             default: false,
+        },
+        isStatic: {
+            type: Boolean,
+            default: false,
+            // Static roles (like Super Admin) cannot be edited or deleted
         },
         createdBy: {
             type: mongoose.Schema.Types.ObjectId,

@@ -9,13 +9,22 @@ export const getPendingApprovals = async (req, res) => {
     try {
         const userEmail = req.user.email;
 
-        // Find tasks created by this user that are Completed and Pending Approval
+        // Find tasks created by this user that are Waiting for Approval
         const tasks = await Task.find({
             createdByEmail: userEmail,
-            status: 'Completed',
+            status: 'Waiting for Approval',
             approvalStatus: 'Pending',
         })
-            .populate('createdBy assignedTo', 'name email role')
+            .populate({
+                path: 'createdBy',
+                select: 'name email role designation',
+                populate: { path: 'role', select: 'displayName' }
+            })
+            .populate({
+                path: 'assignedTo',
+                select: 'name email role designation',
+                populate: { path: 'role', select: 'displayName' }
+            })
             .sort({ updatedAt: -1 });
 
         res.json({
@@ -34,6 +43,7 @@ export const getPendingApprovals = async (req, res) => {
 export const approveTask = async (req, res) => {
     try {
         const userEmail = req.user.email;
+        const { comments } = req.body;
         const task = await Task.findById(req.params.id).populate('assignedTo', 'role');
 
         if (!task) {
@@ -45,17 +55,25 @@ export const approveTask = async (req, res) => {
             return res.status(403).json({ error: 'Only the task creator can approve this task' });
         }
 
-        if (task.status !== 'Completed') {
-            return res.status(400).json({ error: 'Only completed tasks can be approved' });
+        if (task.status !== 'Waiting for Approval') {
+            return res.status(400).json({ error: 'Only tasks waiting for approval can be approved' });
         }
 
         if (task.approvalStatus === 'Approved') {
             return res.status(400).json({ error: 'Task already approved' });
         }
 
+        task.status = 'Completed';
         task.approvalStatus = 'Approved';
         task.approvedBy = req.user._id;
         task.approvedAt = new Date();
+
+        // Save approval comments
+        if (comments && comments.trim()) {
+            task.approvalComments = `Approved by ${req.user.name} on ${new Date().toLocaleDateString()}: ${comments}`;
+        } else {
+            task.approvalComments = `Approved by ${req.user.name} on ${new Date().toLocaleDateString()}`;
+        }
 
         await task.save();
 
@@ -97,23 +115,15 @@ export const rejectTask = async (req, res) => {
             return res.status(403).json({ error: 'Only the task creator can reject this task' });
         }
 
-        if (task.status !== 'Completed') {
-            return res.status(400).json({ error: 'Only completed tasks can be rejected' });
+        if (task.status !== 'Waiting for Approval') {
+            return res.status(400).json({ error: 'Only tasks waiting for approval can be rejected' });
         }
 
         task.approvalStatus = 'Rejected';
-        // We might want to keep it as 'Completed' but rejected, or move back to 'In Progress'. 
-        // usage plan says: Rejected -> Resubmitted -> Pending Approval.
-        // Usually if rejected, work needs to be done, so 'In Progress' makes sense, 
-        // OR we keep it 'Completed' but Rejected state implies it needs attention.
-        // Let's set it to 'In Progress' so assignee sees it in their active list.
         task.status = 'In Progress';
 
-        // Append rejection reason to notes or a new field. Plan mentioned "add rejection reason".
-        // Let's append to notes for now as schema change wasn't explicitly requested but plan mentioned "rejectionReason field (optional)".
-        // I will append to notes to be safe without schema migration, formatted clearly.
-        const rejectionNote = `\n\n[${new Date().toLocaleDateString()}] Rejected by ${req.user.name}: ${reason || 'No reason provided'}`;
-        task.notes = (task.notes || '') + rejectionNote;
+        // Save rejection reason to approvalComments field
+        task.approvalComments = `Rejected by ${req.user.name} on ${new Date().toLocaleDateString()}: ${reason || 'No reason provided'}`;
 
         await task.save();
 

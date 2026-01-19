@@ -27,80 +27,21 @@
                     <tr>
                         <td style="padding: 40px 30px;">
                             <p style="margin: 0 0 20px; font-size: 16px; line-height: 1.6; color: #333333;">
-                                Hi <strong>{{userName}}</strong>,
+                                Hello <strong>{{userName}}</strong>,
+                            </p>
+                            <p style="margin: 0 0 20px; font-size: 16px; line-height: 1.6; color: #555555;">
+                                This is an update regarding a task assigned to you.
                             </p>
                             <p style="margin: 0 0 30px; font-size: 16px; line-height: 1.6; color: #555555;">
-                                Your task has been returned by <strong>{{rejectedBy}}</strong> for revision. Please
-                                review the feedback below and resubmit.
+                                The task number: <strong>#{{taskNumber}}</strong>,<br>
+                                Titled: <strong>{{taskTitle}}</strong>, has been returned for revision.<br>
+                                The return was processed by <strong>{{rejectedBy}}</strong>.<br>
+                                Reason: <strong>{{rejectionReason}}</strong>.
                             </p>
 
-                            <!-- Task Card -->
-                            <table role="presentation"
-                                style="width: 100%; border-collapse: collapse; background-color: #fef2f2; border-radius: 8px; overflow: hidden; margin-bottom: 30px; border: 2px solid #ef4444;">
-                                <tr>
-                                    <td style="padding: 25px;">
-                                        <div style="margin-bottom: 15px;">
-                                            <span
-                                                style="display: inline-block; background-color: #667eea; color: #ffffff; padding: 4px 12px; border-radius: 12px; font-size: 12px; font-weight: 600;">
-                                                #{{taskNumber}}
-                                            </span>
-                                        </div>
-
-                                        <h2
-                                            style="margin: 0 0 20px; font-size: 20px; color: #1f2937; font-weight: 600;">
-                                            {{taskTitle}}
-                                        </h2>
-
-                                        <div
-                                            style="text-align: center; padding: 30px; background-color: #ffffff; border-radius: 6px; margin-bottom: 20px;">
-                                            <div style="font-size: 48px; margin-bottom: 10px;">🔄</div>
-                                            <span
-                                                style="display: inline-block; background-color: #ef4444; color: #ffffff; padding: 8px 24px; border-radius: 20px; font-size: 16px; font-weight: 600;">
-                                                RETURNED
-                                            </span>
-                                        </div>
-
-                                        <table role="presentation" style="width: 100%; border-collapse: collapse;">
-                                            <tr>
-                                                <td style="padding: 8px 0; font-size: 14px; color: #6b7280;">
-                                                    <strong style="color: #374151;">👤 Returned By:</strong>
-                                                </td>
-                                                <td
-                                                    style="padding: 8px 0; font-size: 14px; color: #1f2937; text-align: right;">
-                                                    {{rejectedBy}}
-                                                </td>
-                                            </tr>
-                                            <tr>
-                                                <td style="padding: 8px 0; font-size: 14px; color: #6b7280;">
-                                                    <strong style="color: #374151;">📅 Returned On:</strong>
-                                                </td>
-                                                <td
-                                                    style="padding: 8px 0; font-size: 14px; color: #1f2937; text-align: right;">
-                                                    {{rejectedDate}}
-                                                </td>
-                                            </tr>
-                                        </table>
-
-                                        <div
-                                            style="margin-top: 20px; padding: 20px; background-color: #ffffff; border-radius: 6px; border-left: 4px solid #ef4444;">
-                                            <p
-                                                style="margin: 0 0 10px; font-size: 14px; color: #374151; font-weight: 600;">
-                                                📝 Feedback:
-                                            </p>
-                                            <p style="margin: 0; font-size: 14px; color: #6b7280; line-height: 1.6;">
-                                                {{rejectionReason}}
-                                            </p>
-                                        </div>
-                                    </td>
-                                </tr>
-                            </table>
-
-                            <div
-                                style="background-color: #fef2f2; border-left: 4px solid #ef4444; padding: 15px; border-radius: 4px; margin-bottom: 30px;">
-                                <p style="margin: 0; font-size: 14px; color: #991b1b; font-weight: 600;">
-                                    💡 Please review the feedback and resubmit the task after making necessary changes.
-                                </p>
-                            </div>
+                            <p style="margin: 0 0 20px; font-size: 16px; line-height: 1.6; color: #555555;">
+                                Please review and resubmit the task.
+                            </p>
 
                             <!-- CTA Button -->
                             <table role="presentation" style="width: 100%; border-collapse: collapse;">

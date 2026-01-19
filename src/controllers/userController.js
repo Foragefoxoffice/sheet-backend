@@ -28,7 +28,7 @@ export const getUsers = async (req, res) => {
         const users = await User.find(query)
             .select('-password')
             .populate('department', 'name')
-            .populate('role', 'name displayName level')
+            .populate('role', 'name displayName level designation')
             .sort({ createdAt: -1 });
 
         res.json({
@@ -129,14 +129,64 @@ export const updateUser = async (req, res) => {
             }
         }
 
+        // Check for duplicate email or whatsapp (excluding current user)
+        if (email && email !== user.email) {
+            const existingEmail = await User.findOne({ email, _id: { $ne: req.params.id } });
+            if (existingEmail) {
+                return res.status(400).json({ error: 'Email already in use by another user' });
+            }
+        }
+
+        if (whatsapp && whatsapp !== user.whatsapp) {
+            const existingWhatsApp = await User.findOne({ whatsapp, _id: { $ne: req.params.id } });
+            if (existingWhatsApp) {
+                return res.status(400).json({ error: 'WhatsApp number already in use by another user' });
+            }
+        }
+
         // Update fields
         if (name) user.name = name;
         if (email) user.email = email;
         if (whatsapp) user.whatsapp = whatsapp;
-        if (role) user.role = role;
+        if (req.body.designation !== undefined) user.designation = req.body.designation;
 
         // Handle department updates
         const currentRoleName = typeof currentUserRole === 'string' ? currentUserRole : currentUserRole?.name;
+
+        // Update role if provided and user has permission
+        if (role && role !== user.role?._id?.toString() && role !== user.role?.toString()) {
+            const RoleModel = (await import('../models/Role.js')).default;
+            const currentUserRoleDoc = await RoleModel.findById(currentUserRole._id || currentUserRole).populate('managedRoles');
+            const newRole = await RoleModel.findById(role);
+
+            if (!newRole) {
+                return res.status(404).json({ error: 'Role not found' });
+            }
+
+            // Validate role hierarchy - check if new role is in managedRoles
+            if (currentRoleName === 'superadmin') {
+                // Super Admin can assign any role except Super Admin itself
+                if (newRole.name === 'superadmin') {
+                    return res.status(403).json({
+                        error: 'Cannot assign Super Admin role to users'
+                    });
+                }
+            } else {
+                // Other users can only assign roles in their managedRoles list
+                const canManage = currentUserRoleDoc.managedRoles.some(
+                    managedRole => managedRole._id.toString() === newRole._id.toString()
+                );
+
+                if (!canManage) {
+                    return res.status(403).json({
+                        error: `You cannot assign the "${newRole.displayName}" role. Check your role's managed roles permissions.`
+                    });
+                }
+            }
+
+            user.role = role;
+        }
+
         if (department !== undefined && (currentUserLevel >= 3 || currentRoleName === 'superadmin')) {
             // Director/GM/SuperAdmin can change departments
             user.department = department && department !== '' ? department : null;
@@ -208,47 +258,31 @@ export const deleteUser = async (req, res) => {
 // @access  Private (requires createUsers permission)
 export const getAvailableRoles = async (req, res) => {
     try {
-        const currentUserRole = req.user.role;
-        const currentUserLevel = currentUserRole?.level || 0;
-        const currentRoleName = typeof currentUserRole === 'string' ? currentUserRole : currentUserRole?.name;
+        const currentUserRole = await Role.findById(req.user.role._id || req.user.role).populate('managedRoles');
 
+        if (!currentUserRole) {
+            return res.status(404).json({ error: 'User role not found' });
+        }
+
+        const currentRoleName = currentUserRole.name;
         let availableRoles;
 
-        // Super admin can assign any role (including director, GM, manager, staff)
+        // Super admin can assign any role except Super Admin itself
         if (currentRoleName === 'superadmin') {
             availableRoles = await Role.find({
-                name: { $in: ['director', 'generalmanager', 'manager', 'staff'] }
+                name: { $ne: 'superadmin' }
             })
-                .select('name displayName level description')
-                .sort({ level: -1 });
+                .select('_id name displayName description permissions')
+                .sort({ displayName: 1 });
         }
-        // Director can create: GM, Manager, Staff (level < 4)
-        else if (currentRoleName === 'director' || currentUserLevel === 4) {
-            availableRoles = await Role.find({
-                name: { $in: ['generalmanager', 'manager', 'staff'] }
-            })
-                .select('name displayName level description')
-                .sort({ level: -1 });
-        }
-        // General Manager can create: Manager, Staff (level < 3)
-        else if (currentRoleName === 'generalmanager' || currentUserLevel === 3) {
-            availableRoles = await Role.find({
-                name: { $in: ['manager', 'staff'] }
-            })
-                .select('name displayName level description')
-                .sort({ level: -1 });
-        }
-        // Manager can create: Staff only (level < 2)
-        else if (currentRoleName === 'manager' || currentUserLevel === 2) {
-            availableRoles = await Role.find({
-                name: 'staff'
-            })
-                .select('name displayName level description')
-                .sort({ level: -1 });
-        }
-        // Staff cannot create users
+        // Other users can only assign roles in their managedRoles list
         else {
-            availableRoles = [];
+            const managedRoleIds = currentUserRole.managedRoles.map(role => role._id);
+            availableRoles = await Role.find({
+                _id: { $in: managedRoleIds }
+            })
+                .select('_id name displayName description permissions')
+                .sort({ displayName: 1 });
         }
 
         res.json({
@@ -269,7 +303,7 @@ export const getUsersForTaskAssignment = async (req, res) => {
         // All authenticated users can see the user list for task assignment
         // This returns basic user info needed for task assignment
         const users = await User.find()
-            .select('name email role')
+            .select('name email role designation')
             .populate('role', 'name displayName')
             .sort({ name: 1 });
 
