@@ -94,11 +94,11 @@ export const register = async (req, res) => {
     try {
         const { name, email, whatsapp, password, role, department, designation } = req.body;
 
-        // Check if user exists
-        const userExists = await User.findOne({ $or: [{ email }, { whatsapp }] });
+        // Check if WhatsApp already exists (email can be duplicated)
+        const userExists = await User.findOne({ whatsapp });
 
         if (userExists) {
-            return res.status(400).json({ error: 'User with this email or WhatsApp number already exists' });
+            return res.status(400).json({ error: 'User with this WhatsApp number already exists' });
         }
 
         // If request has a user (authenticated), validate role hierarchy using managedRoles
@@ -130,6 +130,7 @@ export const register = async (req, res) => {
             password,
             role: role || 'Staff',
             department: department && department !== '' ? department : null,
+            designation: designation || '',
         });
 
         // Generate token
@@ -145,6 +146,7 @@ export const register = async (req, res) => {
                 whatsapp: user.whatsapp,
                 role: user.role,
                 department: user.department,
+                designation: user.designation,
             },
         });
     } catch (error) {

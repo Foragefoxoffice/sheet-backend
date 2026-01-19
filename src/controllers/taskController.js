@@ -29,39 +29,7 @@ export const createTask = async (req, res) => {
             return res.status(404).json({ error: 'Assigned user not found' });
         }
 
-        // Validate role-based assignment permissions (unless self-task)
-        if (!isSelfTask && assignedUser._id.toString() !== req.user._id.toString()) {
-            const Role = (await import('../models/Role.js')).default;
-            const currentUserRole = await Role.findById(req.user.role._id || req.user.role)
-                .populate('managedRoles');
-            const assignedUserRole = typeof assignedUser.role === 'object' ? assignedUser.role :
-                await Role.findById(assignedUser.role);
-
-            if (!assignedUserRole) {
-                return res.status(404).json({ error: 'Assigned user role not found' });
-            }
-
-            // Super Admin can assign to anyone except Super Admin
-            if (currentUserRole.name === 'superadmin') {
-                if (assignedUserRole.name === 'superadmin') {
-                    return res.status(403).json({
-                        error: 'Cannot assign tasks to Super Admin users'
-                    });
-                }
-            }
-            // Others can only assign to roles in their managedRoles
-            else {
-                const canAssign = currentUserRole.managedRoles.some(
-                    role => role._id.toString() === assignedUserRole._id.toString()
-                );
-
-                if (!canAssign) {
-                    return res.status(403).json({
-                        error: `You cannot assign tasks to users with "${assignedUserRole.displayName}" role. Check your role's managed roles permissions.`
-                    });
-                }
-            }
-        }
+        // Role-based restrictions removed - anyone can assign tasks to anyone
 
         // Find task giver if provided
         let taskGivenByName = '';
