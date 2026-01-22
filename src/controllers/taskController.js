@@ -305,10 +305,21 @@ export const getAllTasks = async (req, res) => {
         const currentUserRole = await Role.findById(currentUser.role._id || currentUser.role);
         const currentRoleName = currentUserRole?.name?.toLowerCase().replace(/\s+/g, '');
 
+        // Debug logging
+        console.log('🔍 getAllTasks Debug:', {
+            userName: currentUser.name,
+            userEmail: currentUser.email,
+            roleName: currentUserRole?.name,
+            currentRoleName,
+            viewAllTasks: currentUserRole?.permissions?.viewAllTasks
+        });
+
         let tasks;
 
-        // 1. Director, Director2, General Manager - View ALL Tasks
-        if (['director', 'director2', 'generalmanager'].includes(currentRoleName) ||
+        // 1. Super Admin, Director, Director2, General Manager - View ALL Tasks
+        // Check both role name and viewAllTasks permission
+        if (['superadmin', 'director', 'director2', 'generalmanager'].includes(currentRoleName) ||
+            currentUserRole?.permissions?.viewAllTasks ||
             currentUser.name.includes('Director') ||
             currentUser.name.includes('Sathish')) {
 
