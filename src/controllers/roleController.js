@@ -87,44 +87,6 @@ export const createRole = async (req, res) => {
     }
 };
 
-// @desc    Update role
-// @route   PUT /api/roles/:id
-// @access  Private (requires editRoles permission)
-export const updateRole = async (req, res) => {
-    try {
-        const { displayName, description, permissions, managedRoles } = req.body;
-
-        const role = await Role.findById(req.params.id);
-
-        if (!role) {
-            return res.status(404).json({ error: 'Role not found' });
-        }
-
-        // Prevent editing static roles (like Super Admin)
-        if (role.isStatic) {
-            return res.status(403).json({
-                error: 'Cannot edit static roles. Super Admin role is protected and cannot be modified.'
-            });
-        }
-
-        // Update fields
-        if (displayName) role.displayName = displayName;
-        if (description !== undefined) role.description = description;
-        if (permissions) role.permissions = { ...role.permissions, ...permissions };
-        if (managedRoles !== undefined) role.managedRoles = managedRoles;
-
-        await role.save();
-
-        res.json({
-            success: true,
-            role,
-        });
-    } catch (error) {
-        console.error('Update role error:', error);
-        res.status(500).json({ error: error.message || 'Server error' });
-    }
-};
-
 // @desc    Delete role
 // @route   DELETE /api/roles/:id
 // @access  Private (requires deleteRoles permission)

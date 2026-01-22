@@ -3,7 +3,6 @@ import {
     getRoles,
     getRoleById,
     createRole,
-    updateRole,
     deleteRole,
 } from '../controllers/roleController.js';
 import { protect, checkPermission } from '../middleware/auth.js';
@@ -17,7 +16,6 @@ router.use(protect);
 router.get('/', checkPermission('viewRoles'), getRoles);
 router.get('/:id', checkPermission('viewRoles'), getRoleById);
 router.post('/', checkPermission('createRoles'), createRole);
-router.put('/:id', checkPermission('editRoles'), updateRole);
 router.delete('/:id', checkPermission('deleteRoles'), deleteRole);
 
 export default router;

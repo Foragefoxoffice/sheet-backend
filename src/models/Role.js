@@ -224,10 +224,6 @@ const roleSchema = new mongoose.Schema(
                 type: Boolean,
                 default: false,
             },
-            editRoles: {
-                type: Boolean,
-                default: false,
-            },
             deleteRoles: {
                 type: Boolean,
                 default: false,

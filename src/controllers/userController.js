@@ -9,6 +9,11 @@ export const getUsers = async (req, res) => {
         const currentUserRole = req.user.role;
         const currentUserLevel = currentUserRole?.level || 0;
 
+        // Parse pagination params
+        const page = parseInt(req.query.page) || 1;
+        const limit = parseInt(req.query.limit) || 10;
+        const skip = (page - 1) * limit;
+
         let query = {};
 
         // Managers can only see users in their department
@@ -17,6 +22,7 @@ export const getUsers = async (req, res) => {
                 return res.json({
                     success: true,
                     count: 0,
+                    total: 0,
                     users: [],
                     message: 'You need to be assigned to a department to view users'
                 });
@@ -29,11 +35,22 @@ export const getUsers = async (req, res) => {
             .select('-password')
             .populate('department', 'name')
             .populate('role', 'name displayName level designation')
-            .sort({ createdAt: -1 });
+            .sort({ createdAt: -1 })
+            .skip(skip)
+            .limit(limit);
+
+        const total = await User.countDocuments(query);
 
         res.json({
             success: true,
             count: users.length,
+            total,
+            pagination: {
+                page,
+                limit,
+                totalPages: Math.ceil(total / limit),
+                hasMore: page * limit < total
+            },
             users,
         });
     } catch (error) {
@@ -295,16 +312,91 @@ export const getAvailableRoles = async (req, res) => {
     }
 };
 
-// @desc    Get users for task assignment (no permission required)
+// @desc    Get users for task assignment (role-based filtering)
 // @route   GET /api/users/for-tasks
 // @access  Private (authenticated users only)
 export const getUsersForTaskAssignment = async (req, res) => {
     try {
-        // All authenticated users can see the user list for task assignment
-        // This returns basic user info needed for task assignment
-        const users = await User.find()
-            .select('name email role designation')
+        const currentUser = req.user;
+        const currentUserRole = req.user.role;
+        const currentRoleName = currentUserRole?.name?.toLowerCase().replace(/\s+/g, ''); // Normalize: director, generalmanager, etc.
+        const currentRoleDisplayName = currentUserRole?.displayName;
+
+        let query = {};
+        const Role = (await import('../models/Role.js')).default;
+
+        // Helper to find role IDs by names
+        const getRoleIds = async (names) => {
+            const roles = await Role.find({
+                $or: names.map(n => ({
+                    name: { $regex: new RegExp(`^${n}$`, 'i') }
+                }))
+            });
+            return roles.map(r => r._id);
+        };
+
+        // 1. Director (Vasanth D. Ramachandran and Guna)
+        // Can assign to ANY staff member.
+        if (currentRoleName === 'director' || currentUser.name.includes('Vasanth') || currentUser.name.includes('Guna')) {
+            // No filter, return all users
+            query = {};
+        }
+
+        // 2. Director2 (Sathish Xavier)
+        // Can assign tasks only to GMs and Department Heads.
+        else if (currentRoleName === 'director2' || currentUser.name.includes('Sathish')) {
+            const allowedRoleIds = await getRoleIds(['generalmanager', 'manager', 'departmenthead']);
+            query = { role: { $in: allowedRoleIds } };
+        }
+
+        // 3. General Manager (GM)
+        // Can assign only to Department Heads, Project Managers, and Standalone Roles.
+        else if (currentRoleName === 'generalmanager') {
+            const allowedRoleIds = await getRoleIds(['manager', 'departmenthead', 'projectmanager', 'standalone', 'standalonerole']);
+            query = { role: { $in: allowedRoleIds } };
+        }
+
+        // 4. Department Heads
+        // Can assign to other Department Heads, Project Managers, Standalone Roles.
+        // AND Can assign or forward tasks within their own department.
+        else if (currentRoleName === 'manager' || currentRoleName === 'departmenthead') {
+            const targetRoleIds = await getRoleIds(['manager', 'departmenthead', 'projectmanager', 'standalone', 'standalonerole']);
+
+            // Allow: (Target Roles) OR (Same Department)
+            query = {
+                $or: [
+                    { role: { $in: targetRoleIds } },
+                    { department: currentUser.department } // Anyone in same department
+                ]
+            };
+        }
+
+        // 5. Staff
+        // Can assign tasks only to Department Heads, Project Managers, and Standalone Roles.
+        else if (currentRoleName === 'staff') {
+            const allowedRoleIds = await getRoleIds(['manager', 'departmenthead', 'projectmanager', 'standalone', 'standalonerole']);
+            query = { role: { $in: allowedRoleIds } };
+        }
+
+        // 6. Project Managers and Standalone Roles
+        // Can assign costs to Department Heads, Project Managers, and Standalone Roles.
+        else if (currentRoleName === 'projectmanager' || currentRoleName === 'standalone' || currentRoleName === 'standalonerole') {
+            const allowedRoleIds = await getRoleIds(['manager', 'departmenthead', 'projectmanager', 'standalone', 'standalonerole']);
+            query = { role: { $in: allowedRoleIds } };
+        }
+
+        // Default: If role not matched above, fallback to restrictive (or allow basic assignment depending on policy)
+        // Assuming strict implementation based on prompt
+        else {
+            // Fallback for unhandled roles: maybe same as Staff?
+            const allowedRoleIds = await getRoleIds(['manager', 'departmenthead', 'projectmanager', 'standalone', 'standalonerole']);
+            query = { role: { $in: allowedRoleIds } };
+        }
+
+        const users = await User.find(query)
+            .select('name email role designation department')
             .populate('role', 'name displayName')
+            .populate('department', 'name')
             .sort({ name: 1 });
 
         res.json({
