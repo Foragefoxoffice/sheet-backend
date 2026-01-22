@@ -44,39 +44,50 @@ export const createTask = async (req, res) => {
         // --- RBAC Assignment Validation ---
         let canAssign = false;
 
-        // 1. Director (Vasanth D. Ramachandran and Guna)
-        if (currentRoleName === 'director' || currentUser.name.includes('Vasanth') || currentUser.name.includes('Guna')) {
-            canAssign = true; // Can assign to anyone
+        // 1. Super Admin - Can assign to anyone
+        if (currentRoleName === 'superadmin') {
+            canAssign = true;
         }
-        // 2. Director2 (Sathish Xavier) - Only GMs and Dept Heads
-        else if (currentRoleName === 'director2' || currentUser.name.includes('Sathish')) {
+        // 2. Main Director - Can assign to anyone
+        else if (currentRoleName === 'maindirector') {
+            canAssign = true;
+        }
+        // 3. Director - Can assign only to GMs and Department Heads
+        else if (currentRoleName === 'director' || currentRoleName === 'director2') {
             if (['generalmanager', 'manager', 'departmenthead'].includes(assignedRoleName)) {
                 canAssign = true;
             }
         }
-        // 3. General Manager - Dept Heads, PMs, Standalone
+        // 4. General Manager - Can assign to Department Heads, Project Managers and Standalone Roles
         else if (currentRoleName === 'generalmanager') {
-            if (['manager', 'departmenthead', 'projectmanager', 'standalone', 'standalonerole'].includes(assignedRoleName)) {
+            if (['manager', 'departmenthead', 'projectmanager', 'standalonerole', 'standalone', 'projectmanagerandstandalone'].includes(assignedRoleName)) {
                 canAssign = true;
             }
         }
-        // 4. Department Heads - Other Dept Heads, PMs, Standalone OR Own Department Staff
+        // 5. Department Heads - Can assign to other Department Heads, Project Managers and Standalone Roles, and own department staff
         else if (currentRoleName === 'manager' || currentRoleName === 'departmenthead') {
-            if (['manager', 'departmenthead', 'projectmanager', 'standalone', 'standalonerole'].includes(assignedRoleName)) {
+            if (['manager', 'departmenthead', 'projectmanager', 'standalonerole', 'standalone', 'projectmanagerandstandalone'].includes(assignedRoleName)) {
                 canAssign = true;
             } else if (currentUser.department && assignedUser.department && currentUser.department.toString() === assignedUser.department.toString()) {
+                // Can assign to own department staff
                 canAssign = true;
             }
         }
-        // 5. Staff - Dept Heads, PMs, Standalone
+        // 6. Project Managers and Standalone Roles - Can assign to Department Heads, Project Managers and Standalone Roles, and own department staff
+        else if (['projectmanager', 'standalone', 'standalonerole', 'projectmanagerandstandalone'].includes(currentRoleName)) {
+            if (['manager', 'departmenthead', 'projectmanager', 'standalone', 'standalonerole', 'projectmanagerandstandalone'].includes(assignedRoleName)) {
+                canAssign = true;
+            } else if (currentUser.department && assignedUser.department && currentUser.department.toString() === assignedUser.department.toString()) {
+                // Can assign to own department staff
+                canAssign = true;
+            }
+        }
+        // 7. Staff - Can assign to Department Heads, Project Managers and Standalone Roles, and own department staff
         else if (currentRoleName === 'staff') {
-            if (['manager', 'departmenthead', 'projectmanager', 'standalone', 'standalonerole'].includes(assignedRoleName)) {
+            if (['manager', 'departmenthead', 'projectmanager', 'standalone', 'standalonerole', 'projectmanagerandstandalone'].includes(assignedRoleName)) {
                 canAssign = true;
-            }
-        }
-        // 6. PMs / Standalone - Dept Heads, PMs, Standalone
-        else if (['projectmanager', 'standalone', 'standalonerole'].includes(currentRoleName)) {
-            if (['manager', 'departmenthead', 'projectmanager', 'standalone', 'standalonerole'].includes(assignedRoleName)) {
+            } else if (currentUser.department && assignedUser.department && currentUser.department.toString() === assignedUser.department.toString()) {
+                // Can assign to own department staff
                 canAssign = true;
             }
         }
@@ -133,13 +144,13 @@ export const createTask = async (req, res) => {
 
             // Special Notification Rules
 
-            // Rule 1: Director assigns to Executive-level (Staff/Level 1), notify Assignee's Dept Head
-            const isDirector = currentRoleName === 'director' || currentUser.name.includes('Vasanth') || currentUser.name.includes('Guna');
+            // Rule 1: Main Director assigns to Executive-level (Staff/Level 1), notify Assignee's Dept Head
+            const isMainDirector = currentRoleName === 'maindirector' || currentRoleName === 'director';
             const isExecutive = assignedRoleLevel === 1 || assignedRoleName === 'staff';
 
-            if (isDirector && isExecutive && assignedUser.department) {
+            if (isMainDirector && isExecutive && assignedUser.department) {
                 const RoleModel = (await import('../models/Role.js')).default;
-                const managerRoles = await RoleModel.find({ name: { $in: ['manager', 'departmenthead', 'generalmanager'] } }); // widening to GM just in case
+                const managerRoles = await RoleModel.find({ name: { $in: ['manager', 'departmenthead', 'generalmanager'] } });
                 const managerRoleIds = managerRoles.map(r => r._id);
 
                 const assigneeDeptHead = await User.findOne({
@@ -148,7 +159,7 @@ export const createTask = async (req, res) => {
                 });
 
                 if (assigneeDeptHead) {
-                    notifyTaskAssigned(newTask, assigneeDeptHead, req.user); // Reusing task assigned notification for context
+                    notifyTaskAssigned(newTask, assigneeDeptHead, req.user);
                 }
             }
 
@@ -304,24 +315,11 @@ export const getAllTasks = async (req, res) => {
         const Role = (await import('../models/Role.js')).default;
         const currentUserRole = await Role.findById(currentUser.role._id || currentUser.role);
         const currentRoleName = currentUserRole?.name?.toLowerCase().replace(/\s+/g, '');
-
-        // Debug logging
-        console.log('🔍 getAllTasks Debug:', {
-            userName: currentUser.name,
-            userEmail: currentUser.email,
-            roleName: currentUserRole?.name,
-            currentRoleName,
-            viewAllTasks: currentUserRole?.permissions?.viewAllTasks
-        });
-
         let tasks;
 
-        // 1. Super Admin, Director, Director2, General Manager - View ALL Tasks
-        // Check both role name and viewAllTasks permission
-        if (['superadmin', 'director', 'director2', 'generalmanager'].includes(currentRoleName) ||
-            currentUserRole?.permissions?.viewAllTasks ||
-            currentUser.name.includes('Director') ||
-            currentUser.name.includes('Sathish')) {
+        // 1. Super Admin, Main Director, Director, General Manager - View ALL Tasks
+        if (['superadmin', 'maindirector', 'director', 'director2', 'generalmanager'].includes(currentRoleName) ||
+            currentUserRole?.permissions?.viewAllTasks) {
 
             tasks = await Task.find()
                 .populate({
@@ -356,9 +354,7 @@ export const getAllTasks = async (req, res) => {
                 const departmentUsers = await User.find({ department: currentUser.department }).select('email');
                 const departmentEmails = departmentUsers.map(u => u.email);
 
-                // Tasks where ASSIGNEE is in department OR CREATOR is in department (optional, but typical for visibility)
-                // Requirement says: "Can view all tasks assigned to staff within their department."
-                // Also including tasks created by this user to ensure they see tasks they assigned to others (even outside dept)
+                // Tasks where ASSIGNEE is in department OR CREATOR is in department
                 tasks = await Task.find({
                     $or: [
                         { assignedToEmail: { $in: departmentEmails } },
@@ -379,8 +375,7 @@ export const getAllTasks = async (req, res) => {
                     .sort({ createdAt: -1 });
             }
         }
-        // 3. Staff, Project Managers, Standalone Roles - View OWN Tasks only (Assigned to them or Created by them)
-        // Note: The prompt says "Can view only their own tasks". Usually this means tasks assigned TO them or BY them.
+        // 3. Project Managers, Standalone Roles, Staff - View OWN Tasks only
         else {
             tasks = await Task.find({
                 $or: [
@@ -537,11 +532,12 @@ export const updateTask = async (req, res) => {
         // Check if user has permission to update
         const Role = (await import('../models/Role.js')).default;
         const currentUserRole = await Role.findById(req.user.role._id || req.user.role);
+        const currentRoleName = currentUserRole?.name?.toLowerCase().replace(/\s+/g, '');
         const userEmail = req.user.email;
 
         let canUpdate = false;
-        // Users with editAllTasks permission
-        if (currentUserRole?.permissions?.editAllTasks) {
+        // Users with editAllTasks permission (General Manager excluded)
+        if (currentUserRole?.permissions?.editAllTasks && currentRoleName !== 'generalmanager') {
             canUpdate = true;
         }
         // Task Creator (if they have editOwnTasks permission)
@@ -597,11 +593,12 @@ export const deleteTask = async (req, res) => {
         // Check if user has permission to delete
         const Role = (await import('../models/Role.js')).default;
         const currentUserRole = await Role.findById(req.user.role._id || req.user.role);
+        const currentRoleName = currentUserRole?.name?.toLowerCase().replace(/\s+/g, '');
         const userEmail = req.user.email;
 
         let canDelete = false;
-        // Users with deleteAllTasks permission
-        if (currentUserRole?.permissions?.deleteAllTasks) {
+        // Users with deleteAllTasks permission (General Manager excluded)
+        if (currentUserRole?.permissions?.deleteAllTasks && currentRoleName !== 'generalmanager') {
             canDelete = true;
         }
         // Task Creator (if they have deleteOwnTasks permission)
@@ -660,7 +657,7 @@ export const addTaskComment = async (req, res) => {
             text,
             createdBy: req.user._id,
             createdByName: req.user.name,
-            userRole: req.user.role?.displayName || userRoleName,
+            userRole: req.user.role?.displayName || req.user.role?.name || 'Staff',
             createdAt: new Date()
         };
 

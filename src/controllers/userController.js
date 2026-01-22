@@ -319,9 +319,6 @@ export const getUsersForTaskAssignment = async (req, res) => {
     try {
         const currentUser = req.user;
         const currentUserRole = req.user.role;
-        const currentRoleName = currentUserRole?.name?.toLowerCase().replace(/\s+/g, ''); // Normalize: director, generalmanager, etc.
-        const currentRoleDisplayName = currentUserRole?.displayName;
-
         let query = {};
         const Role = (await import('../models/Role.js')).default;
 
@@ -335,24 +332,40 @@ export const getUsersForTaskAssignment = async (req, res) => {
             return roles.map(r => r._id);
         };
 
-        // 1. Director (Vasanth D. Ramachandran and Guna)
-        // Can assign to ANY staff member.
-        if (currentRoleName === 'director' || currentUser.name.includes('Vasanth') || currentUser.name.includes('Guna')) {
-            // No filter, return all users
+        // Explicitly load role if needed to be sure
+        let userRole = currentUserRole;
+        if (!userRole || !userRole.name) {
+             // If role is ID
+             if (currentUser.role) {
+                userRole = await Role.findById(currentUser.role);
+             }
+        }
+
+        const currentRoleName = userRole?.name?.toLowerCase().replace(/\s+/g, '') || '';
+        const roleLevel = userRole?.level || 0;
+
+        // 0. Super Admin (By name or Level 6+)
+        if (currentRoleName === 'superadmin' || roleLevel >= 6) {
             query = {};
         }
 
-        // 2. Director2 (Sathish Xavier)
+        // 1. Main Director
+        // Can assign to anyone
+        else if (currentRoleName === 'maindirector') {
+            query = {};
+        }
+
+        // 2. Director (and Director2)
         // Can assign tasks only to GMs and Department Heads.
-        else if (currentRoleName === 'director2' || currentUser.name.includes('Sathish')) {
-            const allowedRoleIds = await getRoleIds(['generalmanager', 'manager', 'departmenthead']);
+        else if (currentRoleName === 'director' || currentRoleName === 'director2' || currentUser.name.includes('Vasanth') || currentUser.name.includes('Guna') || currentUser.name.includes('Sathish')) {
+            const allowedRoleIds = await getRoleIds(['generalmanager', 'General Manager', 'manager', 'Manager', 'departmenthead', 'Department Head']);
             query = { role: { $in: allowedRoleIds } };
         }
 
         // 3. General Manager (GM)
         // Can assign only to Department Heads, Project Managers, and Standalone Roles.
         else if (currentRoleName === 'generalmanager') {
-            const allowedRoleIds = await getRoleIds(['manager', 'departmenthead', 'projectmanager', 'standalone', 'standalonerole']);
+            const allowedRoleIds = await getRoleIds(['manager', 'Manager', 'departmenthead', 'Department Head', 'projectmanager', 'Project Manager', 'standalone', 'standalonerole', 'Standalone Role']);
             query = { role: { $in: allowedRoleIds } };
         }
 
@@ -360,13 +373,17 @@ export const getUsersForTaskAssignment = async (req, res) => {
         // Can assign to other Department Heads, Project Managers, Standalone Roles.
         // AND Can assign or forward tasks within their own department.
         else if (currentRoleName === 'manager' || currentRoleName === 'departmenthead') {
-            const targetRoleIds = await getRoleIds(['manager', 'departmenthead', 'projectmanager', 'standalone', 'standalonerole']);
+            const targetRoleNames = [
+                'manager', 'Manager', 
+                'departmenthead', 'Department Head', 'DepartmentHead'
+            ];
+            
+            const targetRoleIds = await getRoleIds(targetRoleNames);
 
-            // Allow: (Target Roles) OR (Same Department)
             query = {
                 $or: [
                     { role: { $in: targetRoleIds } },
-                    { department: currentUser.department } // Anyone in same department
+                    { department: currentUser.department }
                 ]
             };
         }
@@ -374,22 +391,48 @@ export const getUsersForTaskAssignment = async (req, res) => {
         // 5. Staff
         // Can assign tasks only to Department Heads, Project Managers, and Standalone Roles.
         else if (currentRoleName === 'staff') {
-            const allowedRoleIds = await getRoleIds(['manager', 'departmenthead', 'projectmanager', 'standalone', 'standalonerole']);
-            query = { role: { $in: allowedRoleIds } };
+            const targetRoleNames = [
+                'manager', 'Manager', 
+                'departmenthead', 'Department Head', 'DepartmentHead',
+                'projectmanager', 'Project Manager', 'ProjectManager',
+                'standalone', 'standalonerole', 'Standalone Role', 'StandaloneRole'
+            ];
+            const allowedRoleIds = await getRoleIds(targetRoleNames);
+            query = {
+                $or: [
+                    { role: { $in: allowedRoleIds } },
+                    { department: currentUser.department }
+                ]
+            };
         }
 
         // 6. Project Managers and Standalone Roles
         // Can assign costs to Department Heads, Project Managers, and Standalone Roles.
-        else if (currentRoleName === 'projectmanager' || currentRoleName === 'standalone' || currentRoleName === 'standalonerole') {
-            const allowedRoleIds = await getRoleIds(['manager', 'departmenthead', 'projectmanager', 'standalone', 'standalonerole']);
-            query = { role: { $in: allowedRoleIds } };
+        else if (currentRoleName === 'projectmanager' || currentRoleName === 'standalone' || currentRoleName === 'standalonerole' || currentRoleName === 'projectmanagerandstandalone') {
+            const targetRoleNames = [
+                'manager', 'Manager', 
+                'departmenthead', 'Department Head', 'DepartmentHead',
+                'projectmanager', 'Project Manager', 'ProjectManager',
+                'standalone', 'standalonerole', 'Standalone Role', 'StandaloneRole'
+            ];
+            const allowedRoleIds = await getRoleIds(targetRoleNames);
+            query = {
+                $or: [
+                    { role: { $in: allowedRoleIds } },
+                    { department: currentUser.department }
+                ]
+            };
         }
 
-        // Default: If role not matched above, fallback to restrictive (or allow basic assignment depending on policy)
-        // Assuming strict implementation based on prompt
+        // Default: If role not matched above, fallback
         else {
-            // Fallback for unhandled roles: maybe same as Staff?
-            const allowedRoleIds = await getRoleIds(['manager', 'departmenthead', 'projectmanager', 'standalone', 'standalonerole']);
+            const targetRoleNames = [
+                'manager', 'Manager', 
+                'departmenthead', 'Department Head', 
+                'projectmanager', 'Project Manager',
+                'standalone', 'standalonerole'
+            ];
+            const allowedRoleIds = await getRoleIds(targetRoleNames);
             query = { role: { $in: allowedRoleIds } };
         }
 

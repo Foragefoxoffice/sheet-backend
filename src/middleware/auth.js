@@ -54,6 +54,15 @@ export const checkPermission = (permission) => {
             });
         }
 
+        const roleName = (req.user.role?.name || req.user.role || '').toLowerCase().replace(/\s+/g, '');
+        const allowedRolesForApprovals = ['staff', 'projectmanager', 'standalone', 'standalonerole', 'projectmanagerandstandalone'];
+
+        // Exemption for Staff/PM/Standalone for approval-related permissions
+        // This allows them to manage the lifecycle of tasks they've assigned to others
+        if ((permission === 'viewApprovals' || permission === 'approveRejectTasks') && allowedRolesForApprovals.includes(roleName)) {
+            return next();
+        }
+
         const hasPermission = req.user.role.permissions && req.user.role.permissions[permission];
 
         if (!hasPermission) {

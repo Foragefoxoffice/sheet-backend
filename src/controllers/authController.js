@@ -13,15 +13,12 @@ const generateToken = (id) => {
 // @access  Public
 export const login = async (req, res) => {
     try {
-        console.log('Login attempt received:', { whatsapp: req.body.whatsapp });
         const { whatsapp, password } = req.body;
 
         if (!whatsapp || !password) {
             console.log('Missing credentials');
             return res.status(400).json({ error: 'Please provide WhatsApp number and password' });
         }
-
-        console.log('Finding user with whatsapp:', whatsapp);
         // Find user by whatsapp and include password, populate role
         const user = await User.findOne({ whatsapp }).select('+password').populate('role');
 

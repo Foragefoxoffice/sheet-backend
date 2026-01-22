@@ -10,7 +10,7 @@ const defaultRoles = [
         name: 'superadmin',
         displayName: 'Super Admin',
         description: 'Super Administrator with full system access including role management. This role cannot be edited or deleted.',
-        level: 5, // Highest level
+        level: 6, // Highest level
         isSystem: true,
         isStatic: true, // Cannot be edited or deleted
         permissions: {
@@ -37,6 +37,10 @@ const defaultRoles = [
             editRoles: true,
             deleteRoles: true,
             // Filter Permissions
+            filterAllTasksDepartment: true,
+            filterAllTasksPriority: true,
+            filterAllTasksRole: true,
+            filterAllTasksUser: true,
             filterIAssignedDepartment: true,
             filterIAssignedPriority: true,
             filterIAssignedRole: true,
@@ -48,12 +52,12 @@ const defaultRoles = [
         },
     },
     {
-        name: 'director',
-        displayName: 'Director',
-        description: 'Full system access with all permissions',
-        level: 4,
+        name: 'maindirector',
+        displayName: 'Main Director',
+        description: 'Main Director - Can assign tasks to anyone. Notifies dept head when assigning to executive-level staff.',
+        level: 5,
         isSystem: true,
-        isStatic: false, // Can be edited/deleted
+        isStatic: false,
         permissions: {
             viewUsers: true,
             createUsers: true,
@@ -77,15 +81,65 @@ const defaultRoles = [
             createRoles: true,
             editRoles: true,
             deleteRoles: true,
+            // Filter Permissions
+            filterAllTasksDepartment: true,
+            filterAllTasksPriority: true,
+            filterAllTasksRole: true,
+            filterAllTasksUser: true,
+            filterIAssignedDepartment: true,
+            filterIAssignedPriority: true,
+            filterIAssignedRole: true,
+            filterIAssignedUser: true,
+        },
+    },
+    {
+        name: 'director2',
+        displayName: 'Director',
+        description: 'Director - Can assign tasks only to GMs and Department Heads. Can view all tasks.',
+        level: 4,
+        isSystem: true,
+        isStatic: false,
+        permissions: {
+            viewUsers: true,
+            createUsers: true,
+            editUsers: true,
+            deleteUsers: true,
+            viewDepartments: true,
+            createDepartments: true,
+            editDepartments: true,
+            deleteDepartments: true,
+            viewAllTasks: true,
+            createTasks: true,
+            editOwnTasks: true,
+            editAllTasks: true,
+            deleteOwnTasks: true,
+            deleteAllTasks: true,
+            viewApprovals: true,
+            approveRejectTasks: true,
+            viewReports: true,
+            downloadReports: true,
+            viewRoles: true,
+            createRoles: true,
+            editRoles: true,
+            deleteRoles: true,
+            // Filter Permissions
+            filterAllTasksDepartment: true,
+            filterAllTasksPriority: true,
+            filterAllTasksRole: true,
+            filterAllTasksUser: true,
+            filterIAssignedDepartment: true,
+            filterIAssignedPriority: true,
+            filterIAssignedRole: true,
+            filterIAssignedUser: true,
         },
     },
     {
         name: 'generalmanager',
         displayName: 'General Manager',
-        description: 'Full system access with all permissions',
+        description: 'General Manager - Can assign to Department Heads, Project Managers, and Standalone Roles. Can view all tasks.',
         level: 3,
         isSystem: true,
-        isStatic: false, // Can be edited/deleted
+        isStatic: false,
         permissions: {
             viewUsers: true,
             createUsers: true,
@@ -109,28 +163,38 @@ const defaultRoles = [
             createRoles: true,
             editRoles: true,
             deleteRoles: true,
+            // Filter Permissions
+            filterAllTasksDepartment: true,
+            filterAllTasksPriority: true,
+            filterAllTasksRole: true,
+            filterAllTasksUser: true,
+            filterIAssignedDepartment: true,
+            filterIAssignedPriority: true,
+            filterIAssignedRole: true,
+            filterIAssignedUser: true,
         },
     },
     {
-        name: 'manager',
-        displayName: 'Manager',
-        description: 'Can manage users in their department and handle tasks',
+        name: 'departmenthead',
+        displayName: 'Department Head',
+        description: 'Department Head - Can assign to other Dept Heads, PMs, Standalone Roles, and own department staff. Can view department tasks.',
         level: 2,
         isSystem: true,
-        isStatic: false, // Can be edited/deleted
+        isStatic: false,
         permissions: {
             viewUsers: true,
-            createUsers: true, // Can create users in their department
-            editUsers: true,   // Can edit users in their department
-            deleteUsers: true, // Can delete users in their department
+            createUsers: true,
+            editUsers: true,
+            deleteUsers: true,
             viewDepartments: true,
             createDepartments: false,
             editDepartments: false,
             deleteDepartments: false,
-            viewAllTasks: true,
+            viewAllTasks: false,
+            viewDepartmentTasks: true,
             createTasks: true,
             editOwnTasks: true,
-            editAllTasks: true,
+            editAllTasks: false,
             deleteOwnTasks: true,
             deleteAllTasks: false,
             viewApprovals: true,
@@ -141,25 +205,71 @@ const defaultRoles = [
             createRoles: false,
             editRoles: false,
             deleteRoles: false,
+            // Filter Permissions
+            filterDeptTasksDepartment: true,
+            filterDeptTasksPriority: true,
+            filterDeptTasksRole: true,
+            filterDeptTasksUser: true,
+            filterIAssignedDepartment: true,
+            filterIAssignedPriority: true,
+            filterIAssignedRole: true,
+            filterIAssignedUser: true,
+        },
+    },
+    {
+        name: 'projectmanagerandstandalone',
+        displayName: 'Project Managers and Standalone Roles',
+        description: 'Project Managers and Standalone Roles - Can assign to Dept Heads, PMs, Standalone Roles, and own department staff. Can view only own tasks.',
+        level: 2,
+        isSystem: true,
+        isStatic: false,
+        permissions: {
+            viewUsers: false,
+            createUsers: false,
+            editUsers: false,
+            deleteUsers: false,
+            viewDepartments: false,
+            createDepartments: false,
+            editDepartments: false,
+            deleteDepartments: false,
+            viewAllTasks: false,
+            viewDepartmentTasks: false,
+            createTasks: true,
+            editOwnTasks: true,
+            editAllTasks: false,
+            deleteOwnTasks: true,
+            deleteAllTasks: false,
+            viewApprovals: false,
+            approveRejectTasks: false,
+            viewReports: false,
+            downloadReports: false,
+            viewRoles: false,
+            createRoles: false,
+            editRoles: false,
+            deleteRoles: false,
+            // Filter Permissions
+            filterIAssignedPriority: true,
+            filterSelfTasksPriority: true,
         },
     },
     {
         name: 'staff',
         displayName: 'Staff',
-        description: 'Task management access only',
+        description: 'Staff - Can assign to Dept Heads, PMs, Standalone Roles, and own department staff. Notifies own dept head for cross-dept assignments.',
         level: 1, // Lowest level
         isSystem: true,
-        isStatic: false, // Can be edited/deleted
+        isStatic: false,
         permissions: {
-            viewUsers: false,      // No user access
-            createUsers: false,    // No user access
-            editUsers: false,      // No user access
-            deleteUsers: false,    // No user access
+            viewUsers: false,
+            createUsers: false,
+            editUsers: false,
+            deleteUsers: false,
             viewDepartments: false,
             createDepartments: false,
             editDepartments: false,
             deleteDepartments: false,
-            viewAllTasks: false,   // Can only see their own tasks
+            viewAllTasks: false,
+            viewDepartmentTasks: false,
             createTasks: true,
             editOwnTasks: true,
             editAllTasks: false,
@@ -173,9 +283,14 @@ const defaultRoles = [
             createRoles: false,
             editRoles: false,
             deleteRoles: false,
+            // Filter Permissions
+            filterIAssignedPriority: true,
+            filterSelfTasksPriority: true,
         },
     },
 ];
+
+import User from './src/models/User.js';
 
 const seedRoles = async () => {
     try {
@@ -183,6 +298,7 @@ const seedRoles = async () => {
 
         console.log('🔄 Seeding default roles with hierarchy...');
 
+        // 1. Create/Update Valid Roles First
         for (const roleData of defaultRoles) {
             const existingRole = await Role.findOne({ name: roleData.name });
 
@@ -195,13 +311,57 @@ const seedRoles = async () => {
             }
         }
 
-        console.log('\n✅ Default roles seeded successfully!');
-        console.log('\n📊 Role Hierarchy:');
-        console.log('Level 5: Super Admin (STATIC - cannot be edited/deleted, full access)');
-        console.log('Level 4: Director (can create all roles)');
-        console.log('Level 3: General Manager (can create Manager & Staff)');
-        console.log('Level 2: Manager (can create Staff only)');
-        console.log('Level 1: Staff (cannot create users)');
+        console.log('✅ Default roles seeded/updated.');
+        console.log('🔄 Starting cleanup of unwanted roles...');
+
+        // Helper function to migrate and delete
+        const migrateAndDelete = async (oldRoleName, newRoleName) => {
+            const oldRole = await Role.findOne({ name: oldRoleName });
+            const newRole = await Role.findOne({ name: newRoleName });
+
+            if (oldRole && newRole) {
+                console.log(`⚠️  Found obsolete role "${oldRoleName}". Migrating users to "${newRoleName}"...`);
+                
+                // Find users with the old role
+                const result = await User.updateMany(
+                    { role: oldRole._id }, 
+                    { role: newRole._id }
+                );
+                
+                console.log(`   Mapped ${result.modifiedCount} user(s) from ${oldRoleName} to ${newRoleName}.`);
+                
+                // Delete old role
+                await Role.findByIdAndDelete(oldRole._id);
+                console.log(`   Deleted obsolete role "${oldRoleName}".`);
+            } else if (oldRole && !newRole) {
+                console.warn(`⚠️  Cannot migrate "${oldRoleName}" because target "${newRoleName}" does not exist!`);
+            }
+        };
+
+        // 2. Migrate and Clean Obsolete Roles
+        // Manager -> Department Head
+        await migrateAndDelete('manager', 'departmenthead');
+        
+        // Director (Legacy) -> Main Director
+        // Note: The new 'Director' role has name 'director2', so 'director' is the legacy one
+        await migrateAndDelete('director', 'maindirector');
+
+        // Project Manager -> Project Managers and Standalone Roles
+        await migrateAndDelete('projectmanager', 'projectmanagerandstandalone');
+
+        // Standalone Role -> Project Managers and Standalone Roles
+        await migrateAndDelete('standalonerole', 'projectmanagerandstandalone');
+        await migrateAndDelete('standalone', 'projectmanagerandstandalone'); // Just in case
+
+        console.log('\n✅ Cleanup completed successfully!');
+        console.log('\n📊 Final Role Hierarchy:');
+        console.log('Level 6: Super Admin (STATIC - cannot be edited/deleted, full system access)');
+        console.log('Level 5: Main Director (can assign to anyone, notifies dept head for executive assignments)');
+        console.log('Level 4: Director (can assign to GMs and Dept Heads only)');
+        console.log('Level 3: General Manager (can assign to Dept Heads, PMs and Standalone Roles)');
+        console.log('Level 2: Department Head (can assign to Dept Heads, PMs and Standalone Roles, own dept staff)');
+        console.log('Level 2: Project Managers and Standalone Roles (can assign to Dept Heads, PMs and Standalone Roles, own dept staff)');
+        console.log('Level 1: Staff (can assign to Dept Heads, PMs and Standalone Roles, own dept staff)');
         console.log('\n⚠️  Note: All roles except Super Admin can be edited or deleted through the UI');
 
         process.exit(0);

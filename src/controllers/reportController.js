@@ -13,9 +13,25 @@ export const getTaskStatistics = async (req, res) => {
         let filter = {};
 
         // Filter based on permissions
+        const roleName = currentUserRole.name?.toLowerCase().replace(/\s+/g, '') || '';
+        const allowedRoles = ['staff', 'projectmanager', 'standalone', 'standalonerole', 'projectmanagerandstandalone'];
+
         // Users without viewReports permission only see their own tasks
+        // BUT if they are Staff/PM/Standalone, they can see tasks they created (assigned) as well
         if (!currentUserRole?.permissions?.viewReports) {
-            filter.assignedToEmail = userEmail;
+            if (allowedRoles.includes(roleName)) {
+                filter = {
+                    $or: [
+                        { assignedToEmail: userEmail },
+                        { createdByEmail: userEmail }
+                    ]
+                };
+                
+                // Also allow them to see pending approvals count for tasks they created
+                // (The default check below uses 'viewApprovals' permission, we'll need to update that too if needed)
+            } else {
+                filter.assignedToEmail = userEmail;
+            }
         }
         // Users with viewReports can see all tasks (no filter)
 
@@ -51,10 +67,11 @@ export const getTaskStatistics = async (req, res) => {
         // Get total tasks
         const totalTasks = await Task.countDocuments(filter);
 
-        // Get pending approvals count (for users with approval permissions)
+        // Get pending approvals count (for users with approval permissions OR allowed roles)
         let pendingApprovals = 0;
-        if (currentUserRole?.permissions?.viewApprovals) {
+        if (currentUserRole?.permissions?.viewApprovals || allowedRoles.includes(roleName)) {
             pendingApprovals = await Task.countDocuments({
+                createdByEmail: userEmail, // Only count their own created tasks needing approval
                 status: 'Completed',
                 approvalStatus: 'Pending',
             });
