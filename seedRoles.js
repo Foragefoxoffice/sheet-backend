@@ -217,9 +217,45 @@ const defaultRoles = [
         },
     },
     {
-        name: 'projectmanagerandstandalone',
-        displayName: 'Project Managers and Standalone Roles',
-        description: 'Project Managers and Standalone Roles - Can assign to Dept Heads, PMs, Standalone Roles, and own department staff. Can view only own tasks.',
+        name: 'projectmanager',
+        displayName: 'Project Manager',
+        description: 'Project Manager - Can assign to Dept Heads, PMs, Standalone Roles, and own department staff. Can view only own tasks.',
+        level: 2,
+        isSystem: true,
+        isStatic: false,
+        permissions: {
+            viewUsers: false,
+            createUsers: false,
+            editUsers: false,
+            deleteUsers: false,
+            viewDepartments: false,
+            createDepartments: false,
+            editDepartments: false,
+            deleteDepartments: false,
+            viewAllTasks: false,
+            viewDepartmentTasks: false,
+            createTasks: true,
+            editOwnTasks: true,
+            editAllTasks: false,
+            deleteOwnTasks: true,
+            deleteAllTasks: false,
+            viewApprovals: false,
+            approveRejectTasks: false,
+            viewReports: false,
+            downloadReports: false,
+            viewRoles: false,
+            createRoles: false,
+            editRoles: false,
+            deleteRoles: false,
+            // Filter Permissions
+            filterIAssignedPriority: true,
+            filterSelfTasksPriority: true,
+        },
+    },
+    {
+        name: 'standalonerole',
+        displayName: 'Standalone Role',
+        description: 'Standalone Role - Can assign to Dept Heads, PMs, Standalone Roles, and own department staff. Can view only own tasks.',
         level: 2,
         isSystem: true,
         isStatic: false,
@@ -346,12 +382,8 @@ const seedRoles = async () => {
         // Note: The new 'Director' role has name 'director2', so 'director' is the legacy one
         await migrateAndDelete('director', 'maindirector');
 
-        // Project Manager -> Project Managers and Standalone Roles
-        await migrateAndDelete('projectmanager', 'projectmanagerandstandalone');
-
-        // Standalone Role -> Project Managers and Standalone Roles
-        await migrateAndDelete('standalonerole', 'projectmanagerandstandalone');
-        await migrateAndDelete('standalone', 'projectmanagerandstandalone'); // Just in case
+        // Combined Role -> Project Manager
+        await migrateAndDelete('projectmanagerandstandalone', 'projectmanager');
 
         console.log('\n✅ Cleanup completed successfully!');
         console.log('\n📊 Final Role Hierarchy:');
