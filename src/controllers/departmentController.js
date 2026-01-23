@@ -122,32 +122,23 @@ export const updateDepartment = async (req, res) => {
     try {
         const { name, description, manager, isActive } = req.body;
 
-        const department = await Department.findById(req.params.id);
-        if (!department) {
+        const updates = {};
+        if (name !== undefined) updates.name = name;
+        if (description !== undefined) updates.description = description;
+        if (manager !== undefined) updates.manager = manager;
+        if (typeof isActive !== 'undefined') updates.isActive = isActive;
+
+        const updatedDept = await Department.findByIdAndUpdate(
+            req.params.id,
+            { $set: updates },
+            { new: true, runValidators: true }
+        )
+        .populate('manager', 'name email role')
+        .populate('members', 'name email role');
+
+        if (!updatedDept) {
             return res.status(404).json({ error: 'Department not found' });
         }
-
-        // Verify manager if provided
-        if (manager) {
-            const managerUser = await User.findById(manager).populate('role');
-            if (!managerUser) {
-                return res.status(404).json({ error: 'Manager not found' });
-            }
-            // Note: Removed hardcoded role check - any user can be assigned as manager
-        }
-
-        department.name = name || department.name;
-        department.description = description || department.description;
-        department.manager = manager || department.manager;
-        if (typeof isActive !== 'undefined') {
-            department.isActive = isActive;
-        }
-
-        await department.save();
-
-        const updatedDept = await Department.findById(department._id)
-            .populate('manager', 'name email role')
-            .populate('members', 'name email role');
 
         res.json({
             success: true,
