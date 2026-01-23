@@ -99,7 +99,7 @@ export const deleteRole = async (req, res) => {
         }
 
         // Prevent deletion of static roles (like Super Admin)
-        if (role.isStatic) {
+        if (role.isStatic || role.name === 'superadmin') {
             return res.status(403).json({
                 error: 'Cannot delete static roles. Super Admin role is protected and cannot be deleted.'
             });

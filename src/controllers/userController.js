@@ -373,19 +373,53 @@ export const getUsersForTaskAssignment = async (req, res) => {
         // Can assign to other Department Heads, Project Managers, Standalone Roles.
         // AND Can assign or forward tasks within their own department.
         else if (currentRoleName === 'manager' || currentRoleName === 'departmenthead') {
-            const targetRoleNames = [
-                'manager', 'Manager', 
-                'departmenthead', 'Department Head', 'DepartmentHead'
-            ];
+            // STRATEGY: Fetch ALL users and filter in memory to guarantee correctness
+            // This bypasses any potential issues with mixing $or, $in, and ObjectId types in Mongoose
             
-            const targetRoleIds = await getRoleIds(targetRoleNames);
+            // 1. Fetch everyone
+            const allUsers = await User.find({})
+                .select('name email role designation department')
+                .populate('role', 'name displayName level')
+                .populate('department', 'name')
+                .sort({ name: 1 });
 
-            query = {
-                $or: [
-                    { role: { $in: targetRoleIds } },
-                    { department: currentUser.department }
-                ]
-            };
+            // 2. Define safe comparison values
+            const myDeptId = String(currentUser.department?._id || currentUser.department || '');
+            
+            // 3. Filter
+            const filteredUsers = allUsers.filter(u => {
+                // Criterion A: Same Department?
+                const uDeptId = String(u.department?._id || u.department?._id || u.department || '');
+                if (myDeptId && uDeptId === myDeptId) {
+                    return true;
+                }
+
+                // Criterion B: Is Target Role? (Dept Head, PM, Standalone)
+                if (u.role) {
+                    const rName = (u.role.name || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+                    const rDisplay = (u.role.displayName || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+                    
+                    // EXCLUDE General Manager explicitly
+                    if (rName.includes('general') || rDisplay.includes('general')) {
+                        return false;
+                    }
+                    
+                    // Allow: Department Head (manager), Project Manager, Standalone
+                    const targets = ['departmenthead', 'manager', 'projectmanager', 'standalone', 'standalonerole'];
+                    
+                    if (targets.some(t => rName.includes(t) || rDisplay.includes(t))) {
+                        return true;
+                    }
+                }
+                
+                return false;
+            });
+
+            return res.json({
+                success: true,
+                count: filteredUsers.length,
+                users: filteredUsers,
+            });
         }
 
         // 5. Staff
