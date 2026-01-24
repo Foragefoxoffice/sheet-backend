@@ -73,11 +73,11 @@ const taskSchema = new mongoose.Schema(
         },
         taskGivenBy: {
             type: String,
-            default: '', // Email of person who gave/requested the task
+            default: '',
         },
         taskGivenByName: {
             type: String,
-            default: '', // Name of person who gave/requested the task
+            default: '',
         },
         comments: [{
             text: {

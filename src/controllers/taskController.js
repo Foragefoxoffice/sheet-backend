@@ -21,7 +21,40 @@ export const createTask = async (req, res) => {
         const { task, assignedToEmail, priority, durationType, durationValue, notes, isSelfTask, taskGivenBy, taskGivenByName: providedTaskGivenByName } = req.body;
         const currentUser = req.user;
 
-        // ... (rest of the file until the task giver lookup)
+        if (!task) {
+            return res.status(400).json({ error: 'Task description is required' });
+        }
+
+        let targetEmail = assignedToEmail;
+        if (isSelfTask) {
+            targetEmail = currentUser.email;
+        }
+
+        if (!targetEmail) {
+            return res.status(400).json({ error: 'Please select a user to assign the task to' });
+        }
+
+        const assignedUser = await User.findOne({ email: targetEmail }).populate('role department');
+        if (!assignedUser) {
+            return res.status(404).json({ error: `Assigned user not found: ${targetEmail}` });
+        }
+
+        // Get Role details for permissions/notifications logic
+        const Role = (await import('../models/Role.js')).default;
+
+        // Current User Role
+        const currentUserRoleDoc = await Role.findById(currentUser.role._id || currentUser.role);
+        const currentRoleName = currentUserRoleDoc?.name?.toLowerCase().replace(/\s+/g, '') || 'staff';
+
+        // Assigned User Role
+        const assignedUserRoleDoc = await Role.findById(assignedUser.role._id || assignedUser.role);
+        const assignedRoleName = assignedUserRoleDoc?.name?.toLowerCase().replace(/\s+/g, '') || 'staff';
+
+        // Determine simplified level for legacy logic
+        let assignedRoleLevel = 1; // Default to Staff
+        if (assignedRoleName.includes('director')) assignedRoleLevel = 4;
+        else if (assignedRoleName.includes('generalmanager')) assignedRoleLevel = 3;
+        else if (assignedRoleName.includes('manager') || assignedRoleName.includes('head')) assignedRoleLevel = 2;
 
         // Find task giver if provided
         let taskGivenByName = providedTaskGivenByName || '';
