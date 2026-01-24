@@ -18,93 +18,14 @@ const ROLE_HIERARCHY = {
 // @access  Private
 export const createTask = async (req, res) => {
     try {
-        const { task, assignedToEmail, priority, durationType, durationValue, notes, isSelfTask, taskGivenBy } = req.body;
+        const { task, assignedToEmail, priority, durationType, durationValue, notes, isSelfTask, taskGivenBy, taskGivenByName: providedTaskGivenByName } = req.body;
         const currentUser = req.user;
 
-        // Find current user's role details
-        const Role = (await import('../models/Role.js')).default;
-        const currentUserRole = await Role.findById(currentUser.role._id || currentUser.role);
-        const currentRoleName = currentUserRole?.name?.toLowerCase().replace(/\s+/g, '');
-
-        // Validate required fields
-        if (!task || !assignedToEmail || !durationValue) {
-            return res.status(400).json({ error: 'Please provide all required fields' });
-        }
-
-        // Find assigned user
-        const assignedUser = await User.findOne({ email: assignedToEmail }).populate('role');
-
-        if (!assignedUser) {
-            return res.status(404).json({ error: 'Assigned user not found' });
-        }
-
-        const assignedRoleName = assignedUser.role?.name?.toLowerCase().replace(/\s+/g, '') || 'staff';
-        const assignedRoleLevel = assignedUser.role?.level || 1;
-
-        // --- RBAC Assignment Validation ---
-        let canAssign = false;
-
-        // 1. Super Admin - Can assign to anyone
-        if (currentRoleName === 'superadmin') {
-            canAssign = true;
-        }
-        // 2. Main Director - Can assign to anyone
-        else if (currentRoleName === 'maindirector') {
-            canAssign = true;
-        }
-        // 3. Director - Can assign only to GMs and Department Heads
-        else if (currentRoleName === 'director' || currentRoleName === 'director2') {
-            if (['generalmanager', 'manager', 'departmenthead'].includes(assignedRoleName)) {
-                canAssign = true;
-            }
-        }
-        // 4. General Manager - Can assign to Department Heads, Project Managers and Standalone Roles
-        else if (currentRoleName === 'generalmanager') {
-            if (['manager', 'departmenthead', 'projectmanager', 'standalonerole', 'standalone', 'projectmanagerandstandalone'].includes(assignedRoleName)) {
-                canAssign = true;
-            }
-        }
-        // 5. Department Heads - Can assign to other Department Heads, Project Managers and Standalone Roles, and own department staff
-        else if (currentRoleName === 'manager' || currentRoleName === 'departmenthead') {
-            if (['manager', 'departmenthead', 'projectmanager', 'standalonerole', 'standalone', 'projectmanagerandstandalone'].includes(assignedRoleName)) {
-                canAssign = true;
-            } else if (currentUser.department && assignedUser.department && currentUser.department.toString() === assignedUser.department.toString()) {
-                // Can assign to own department staff
-                canAssign = true;
-            }
-        }
-        // 6. Project Managers and Standalone Roles - Can assign to Department Heads, Project Managers and Standalone Roles, and own department staff
-        else if (['projectmanager', 'standalone', 'standalonerole', 'projectmanagerandstandalone'].includes(currentRoleName)) {
-            if (['manager', 'departmenthead', 'projectmanager', 'standalone', 'standalonerole', 'projectmanagerandstandalone'].includes(assignedRoleName)) {
-                canAssign = true;
-            } else if (currentUser.department && assignedUser.department && currentUser.department.toString() === assignedUser.department.toString()) {
-                // Can assign to own department staff
-                canAssign = true;
-            }
-        }
-        // 7. Staff - Can assign to Department Heads, Project Managers and Standalone Roles, and own department staff
-        else if (currentRoleName === 'staff') {
-            if (['manager', 'departmenthead', 'projectmanager', 'standalone', 'standalonerole', 'projectmanagerandstandalone'].includes(assignedRoleName)) {
-                canAssign = true;
-            } else if (currentUser.department && assignedUser.department && currentUser.department.toString() === assignedUser.department.toString()) {
-                // Can assign to own department staff
-                canAssign = true;
-            }
-        }
-        // Self Task Exception
-        if (isSelfTask && assignedToEmail === currentUser.email) {
-            canAssign = true;
-        }
-
-        if (!canAssign) {
-            return res.status(403).json({
-                error: `You are not authorized to assign tasks to ${assignedUser.role?.displayName || 'this user'}`
-            });
-        }
+        // ... (rest of the file until the task giver lookup)
 
         // Find task giver if provided
-        let taskGivenByName = '';
-        if (taskGivenBy) {
+        let taskGivenByName = providedTaskGivenByName || '';
+        if (taskGivenBy && !taskGivenByName) {
             const giverUser = await User.findOne({ email: taskGivenBy });
             if (giverUser) {
                 taskGivenByName = giverUser.name;
@@ -220,6 +141,7 @@ export const getTasks = async (req, res) => {
                 select: 'name email role designation',
                 populate: { path: 'role', select: 'displayName' }
             })
+            .populate('comments.createdBy', 'name role designation')
             .sort({ createdAt: -1 });
 
         res.json({
@@ -252,6 +174,7 @@ export const getSelfTasks = async (req, res) => {
                 select: 'name email role designation',
                 populate: { path: 'role', select: 'displayName' }
             })
+            .populate('comments.createdBy', 'name role designation')
             .sort({ createdAt: -1 });
 
         res.json({
@@ -291,6 +214,7 @@ export const getAssignedTasks = async (req, res) => {
                 path: 'approvedBy',
                 select: 'name email'
             })
+            .populate('comments.createdBy', 'name role designation')
             .sort({ createdAt: -1 });
 
         res.json({
@@ -342,6 +266,7 @@ export const getAllTasks = async (req, res) => {
                     path: 'approvedBy',
                     select: 'name email'
                 })
+                .populate('comments.createdBy', 'name role designation')
                 .sort({ createdAt: -1 });
 
         }
@@ -372,6 +297,7 @@ export const getAllTasks = async (req, res) => {
                         populate: { path: 'role', select: 'displayName' }
                     })
                     .populate('approvedBy', 'name email role')
+                    .populate('comments.createdBy', 'name role designation')
                     .sort({ createdAt: -1 });
             }
         }
@@ -394,6 +320,7 @@ export const getAllTasks = async (req, res) => {
                     populate: { path: 'role', select: 'displayName' }
                 })
                 .populate('approvedBy', 'name email role')
+                .populate('comments.createdBy', 'name role designation')
                 .sort({ createdAt: -1 });
         }
 
@@ -423,7 +350,8 @@ export const getTaskById = async (req, res) => {
                 select: 'name email role designation',
                 populate: { path: 'role', select: 'displayName' }
             })
-            .populate('approvedBy', 'name email role');
+            .populate('approvedBy', 'name email role')
+            .populate('comments.createdBy', 'name role designation');
 
         if (!task) {
             return res.status(404).json({ error: 'Task not found' });
@@ -650,14 +578,30 @@ export const addTaskComment = async (req, res) => {
         }
 
         if (!canComment) {
+            // Check for high-level roles
+            const Role = (await import('../models/Role.js')).default;
+            const currentUserRole = await Role.findById(req.user.role._id || req.user.role);
+            const currentRoleName = currentUserRole?.name?.toLowerCase().replace(/\s+/g, '');
+
+            if (['superadmin', 'maindirector', 'director', 'director2', 'generalmanager'].includes(currentRoleName)) {
+                canComment = true;
+            }
+        }
+
+        if (!canComment) {
             return res.status(403).json({ error: 'Not authorized to comment on this task' });
         }
 
+        // Fetch full user details to get department
+        const commentingUser = await User.findById(req.user._id).populate('department role');
+
         const newComment = {
             text,
-            createdBy: req.user._id,
-            createdByName: req.user.name,
-            userRole: req.user.role?.displayName || req.user.role?.name || 'Staff',
+            createdBy: commentingUser._id,
+            createdByName: commentingUser.name,
+            userRole: commentingUser.role?.displayName || commentingUser.role?.name || 'Staff',
+            userDesignation: commentingUser.designation || '',
+            userDepartment: commentingUser.department?.name || '',
             createdAt: new Date()
         };
 
@@ -666,12 +610,16 @@ export const addTaskComment = async (req, res) => {
 
         // Return the full task with populated fields
         const updatedTask = await Task.findById(task._id)
-            .populate('createdBy assignedTo approvedBy', 'name email role')
-            .populate('comments.createdBy', 'name role');
+            .populate({
+                path: 'createdBy assignedTo approvedBy',
+                select: 'name email role',
+                populate: { path: 'role', select: 'displayName' }
+            })
+            .populate('comments.createdBy', 'name role designation');
 
         res.json({
             success: true,
-            task: updatedTask
+            task: updatedTask,
         });
     } catch (error) {
         console.error('Add comment error:', error);

@@ -335,10 +335,10 @@ export const getUsersForTaskAssignment = async (req, res) => {
         // Explicitly load role if needed to be sure
         let userRole = currentUserRole;
         if (!userRole || !userRole.name) {
-             // If role is ID
-             if (currentUser.role) {
+            // If role is ID
+            if (currentUser.role) {
                 userRole = await Role.findById(currentUser.role);
-             }
+            }
         }
 
         const currentRoleName = userRole?.name?.toLowerCase().replace(/\s+/g, '') || '';
@@ -375,7 +375,7 @@ export const getUsersForTaskAssignment = async (req, res) => {
         else if (currentRoleName === 'manager' || currentRoleName === 'departmenthead') {
             // STRATEGY: Fetch ALL users and filter in memory to guarantee correctness
             // This bypasses any potential issues with mixing $or, $in, and ObjectId types in Mongoose
-            
+
             // 1. Fetch everyone
             const allUsers = await User.find({})
                 .select('name email role designation department')
@@ -385,7 +385,7 @@ export const getUsersForTaskAssignment = async (req, res) => {
 
             // 2. Define safe comparison values
             const myDeptId = String(currentUser.department?._id || currentUser.department || '');
-            
+
             // 3. Filter
             const filteredUsers = allUsers.filter(u => {
                 // Criterion A: Same Department?
@@ -398,20 +398,20 @@ export const getUsersForTaskAssignment = async (req, res) => {
                 if (u.role) {
                     const rName = (u.role.name || '').toLowerCase().replace(/[^a-z0-9]/g, '');
                     const rDisplay = (u.role.displayName || '').toLowerCase().replace(/[^a-z0-9]/g, '');
-                    
+
                     // EXCLUDE General Manager explicitly
                     if (rName.includes('general') || rDisplay.includes('general')) {
                         return false;
                     }
-                    
+
                     // Allow: Department Head (manager), Project Manager, Standalone
                     const targets = ['departmenthead', 'manager', 'projectmanager', 'standalone', 'standalonerole'];
-                    
+
                     if (targets.some(t => rName.includes(t) || rDisplay.includes(t))) {
                         return true;
                     }
                 }
-                
+
                 return false;
             });
 
@@ -426,7 +426,7 @@ export const getUsersForTaskAssignment = async (req, res) => {
         // Can assign tasks only to Department Heads, Project Managers, and Standalone Roles.
         else if (currentRoleName === 'staff') {
             const targetRoleNames = [
-                'manager', 'Manager', 
+                'manager', 'Manager',
                 'departmenthead', 'Department Head', 'DepartmentHead',
                 'projectmanager', 'Project Manager', 'ProjectManager',
                 'standalone', 'standalonerole', 'Standalone Role', 'StandaloneRole'
@@ -444,7 +444,7 @@ export const getUsersForTaskAssignment = async (req, res) => {
         // Can assign costs to Department Heads, Project Managers, and Standalone Roles.
         else if (currentRoleName === 'projectmanager' || currentRoleName === 'standalone' || currentRoleName === 'standalonerole' || currentRoleName === 'projectmanagerandstandalone') {
             const targetRoleNames = [
-                'manager', 'Manager', 
+                'manager', 'Manager',
                 'departmenthead', 'Department Head', 'DepartmentHead',
                 'projectmanager', 'Project Manager', 'ProjectManager',
                 'standalone', 'standalonerole', 'Standalone Role', 'StandaloneRole'
@@ -461,8 +461,8 @@ export const getUsersForTaskAssignment = async (req, res) => {
         // Default: If role not matched above, fallback
         else {
             const targetRoleNames = [
-                'manager', 'Manager', 
-                'departmenthead', 'Department Head', 
+                'manager', 'Manager',
+                'departmenthead', 'Department Head',
                 'projectmanager', 'Project Manager',
                 'standalone', 'standalonerole'
             ];
@@ -483,6 +483,28 @@ export const getUsersForTaskAssignment = async (req, res) => {
         });
     } catch (error) {
         console.error('Get users for task assignment error:', error);
+        res.status(500).json({ error: error.message });
+    }
+};
+
+// @desc    Get all users list for filtering (unrestricted)
+// @route   GET /api/users/list
+// @access  Private
+export const getAllUsersList = async (req, res) => {
+    try {
+        const users = await User.find({})
+            .select('name email role designation department')
+            .populate('role', 'name displayName')
+            .populate('department', 'name')
+            .sort({ name: 1 });
+
+        res.json({
+            success: true,
+            count: users.length,
+            users,
+        });
+    } catch (error) {
+        console.error('Get all users list error:', error);
         res.status(500).json({ error: error.message });
     }
 };

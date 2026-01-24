@@ -94,7 +94,13 @@ const taskSchema = new mongoose.Schema(
                 required: true,
             },
             userRole: {
-                type: String, // 'Director', 'Manager', etc. for display context
+                type: String,
+            },
+            userDesignation: {
+                type: String,
+            },
+            userDepartment: {
+                type: String,
             },
             createdAt: {
                 type: Date,
