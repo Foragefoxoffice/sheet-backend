@@ -19,8 +19,8 @@ export const login = async (req, res) => {
             console.log('Missing credentials');
             return res.status(400).json({ error: 'Please provide WhatsApp number and password' });
         }
-        // Find user by whatsapp and include password, populate role
-        const user = await User.findOne({ whatsapp }).select('+password').populate('role');
+        // Find user by whatsapp and include password, populate role and department
+        const user = await User.findOne({ whatsapp }).select('+password').populate('role').populate('department', 'name');
 
         if (!user) {
             console.log('User not found for whatsapp:', whatsapp);
@@ -50,6 +50,7 @@ export const login = async (req, res) => {
                 whatsapp: user.whatsapp,
                 role: user.role,
                 permissions: user.role?.permissions || {},
+                department: user.department,
             },
         });
     } catch (error) {
@@ -65,7 +66,7 @@ export const login = async (req, res) => {
 // @access  Private
 export const getCurrentUser = async (req, res) => {
     try {
-        const user = await User.findById(req.user._id).populate('role');
+        const user = await User.findById(req.user._id).populate('role').populate('department', 'name');
 
         res.json({
             success: true,
@@ -76,6 +77,7 @@ export const getCurrentUser = async (req, res) => {
                 whatsapp: user.whatsapp,
                 role: user.role,
                 permissions: user.role?.permissions || {},
+                department: user.department,
             },
         });
     } catch (error) {

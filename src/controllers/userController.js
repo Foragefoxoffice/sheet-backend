@@ -16,8 +16,10 @@ export const getUsers = async (req, res) => {
 
         let query = {};
 
-        // Managers can only see users in their department
-        if (currentUserLevel === 2) { // Manager level
+        // Managers can only see users in their department (Department Head is exempted to see all users)
+        const currentRoleName = (currentUserRole?.name || '').toLowerCase().replace(/\s+/g, '');
+        
+        if (currentUserLevel === 2 && currentRoleName !== 'departmenthead') { // Manager level but not Dept Head
             if (!req.user.department) {
                 return res.json({
                     success: true,
@@ -349,24 +351,13 @@ export const getUsersForTaskAssignment = async (req, res) => {
             query = {};
         }
 
-        // 1. Main Director
+        // 1. Director Level (Main Director, Director, General Manager)
         // Can assign to anyone
-        else if (currentRoleName === 'maindirector') {
+        else if (['maindirector', 'director', 'generalmanager'].includes(currentRoleName) || 
+            currentUser.name.includes('Vasanth') || 
+            currentUser.name.includes('Guna') || 
+            currentUser.name.includes('Sathish')) {
             query = {};
-        }
-
-        // 2. Director (and Director2)
-        // Can assign tasks only to GMs and Department Heads.
-        else if (currentRoleName === 'director' || currentRoleName === 'director2' || currentUser.name.includes('Vasanth') || currentUser.name.includes('Guna') || currentUser.name.includes('Sathish')) {
-            const allowedRoleIds = await getRoleIds(['generalmanager', 'General Manager', 'manager', 'Manager', 'departmenthead', 'Department Head']);
-            query = { role: { $in: allowedRoleIds } };
-        }
-
-        // 3. General Manager (GM)
-        // Can assign only to Department Heads, Project Managers, and Standalone Roles.
-        else if (currentRoleName === 'generalmanager') {
-            const allowedRoleIds = await getRoleIds(['manager', 'Manager', 'departmenthead', 'Department Head', 'projectmanager', 'Project Manager', 'standalone', 'standalonerole', 'Standalone Role']);
-            query = { role: { $in: allowedRoleIds } };
         }
 
         // 4. Department Heads

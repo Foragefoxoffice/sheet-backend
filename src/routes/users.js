@@ -6,6 +6,7 @@ import {
     deleteUser,
     getAvailableRoles,
     getUsersForTaskAssignment,
+    getAllUsersList,
 } from '../controllers/userController.js';
 import { protect, checkPermission } from '../middleware/auth.js';
 
@@ -17,6 +18,7 @@ router.use(protect);
 // User CRUD with permission-based access
 router.get('/', checkPermission('viewUsers'), getUsers);
 router.get('/available-roles', getAvailableRoles);
+router.get('/list', getAllUsersList); // Get all users without role-based filtering
 router.get('/for-tasks', getUsersForTaskAssignment); // No permission required - all users can see this
 router.get('/:id', getUser);
 router.put('/:id', checkPermission('editUsers'), updateUser);

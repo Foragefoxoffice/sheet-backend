@@ -54,7 +54,7 @@ const defaultRoles = [
     {
         name: 'maindirector',
         displayName: 'Main Director',
-        description: 'Main Director - Can assign tasks to anyone. Notifies dept head when assigning to executive-level staff.',
+        description: 'Can assign tasks to anyone. Notifies dept head when assigning to executive-level staff.',
         level: 5,
         isSystem: true,
         isStatic: false,
@@ -93,9 +93,9 @@ const defaultRoles = [
         },
     },
     {
-        name: 'director2',
+        name: 'director',
         displayName: 'Director',
-        description: 'Director - Can assign tasks only to GMs and Department Heads. Can view all tasks.',
+        description: 'Can assign tasks only to GMs and Department Heads. Can view all tasks.',
         level: 4,
         isSystem: true,
         isStatic: false,
@@ -131,12 +131,16 @@ const defaultRoles = [
             filterIAssignedPriority: true,
             filterIAssignedRole: true,
             filterIAssignedUser: true,
+            filterSelfTasksDepartment: true,
+            filterSelfTasksPriority: true,
+            filterSelfTasksRole: true,
+            filterSelfTasksUser: true,
         },
     },
     {
         name: 'generalmanager',
         displayName: 'General Manager',
-        description: 'General Manager - Can assign to Department Heads, Project Managers, and Standalone Roles. Can view all tasks.',
+        description: 'Can assign to Department Heads, Project Managers, and Standalone Roles. Can view all tasks.',
         level: 3,
         isSystem: true,
         isStatic: false,
@@ -177,13 +181,13 @@ const defaultRoles = [
     {
         name: 'departmenthead',
         displayName: 'Department Head',
-        description: 'Department Head - Can assign to other Dept Heads, PMs, Standalone Roles, and own department staff. Can view department tasks.',
+        description: 'Can assign to other Dept Heads, PMs, Standalone Roles, and own department staff. Can view department tasks.',
         level: 2,
         isSystem: true,
         isStatic: false,
         permissions: {
             viewUsers: true,
-            createUsers: true,
+            createUsers: false,
             editUsers: true,
             deleteUsers: true,
             viewDepartments: true,
@@ -219,7 +223,7 @@ const defaultRoles = [
     {
         name: 'projectmanager',
         displayName: 'Project Manager',
-        description: 'Project Manager - Can assign to Dept Heads, PMs, Standalone Roles, and own department staff. Can view only own tasks.',
+        description: 'Can assign to Dept Heads, PMs, Standalone Roles, and own department staff. Can view only own tasks.',
         level: 2,
         isSystem: true,
         isStatic: false,
@@ -255,7 +259,7 @@ const defaultRoles = [
     {
         name: 'standalonerole',
         displayName: 'Standalone Role',
-        description: 'Standalone Role - Can assign to Dept Heads, PMs, Standalone Roles, and own department staff. Can view only own tasks.',
+        description: 'Can assign to Dept Heads, PMs, Standalone Roles, and own department staff. Can view only own tasks.',
         level: 2,
         isSystem: true,
         isStatic: false,
@@ -291,7 +295,7 @@ const defaultRoles = [
     {
         name: 'staff',
         displayName: 'Staff',
-        description: 'Staff - Can assign to Dept Heads, PMs, Standalone Roles, and own department staff. Notifies own dept head for cross-dept assignments.',
+        description: 'Can assign to Dept Heads, PMs, Standalone Roles, and own department staff. Notifies own dept head for cross-dept assignments.',
         level: 1, // Lowest level
         isSystem: true,
         isStatic: false,
@@ -378,9 +382,9 @@ const seedRoles = async () => {
         // Manager -> Department Head
         await migrateAndDelete('manager', 'departmenthead');
         
-        // Director (Legacy) -> Main Director
-        // Note: The new 'Director' role has name 'director2', so 'director' is the legacy one
-        await migrateAndDelete('director', 'maindirector');
+        // Director2 -> Director (Rename)
+        // Since we renamed 'director2' to 'director' in definitions, we need to migrate any existing 'director2' roles to 'director'
+        await migrateAndDelete('director2', 'director');
 
         // Combined Role -> Project Manager
         await migrateAndDelete('projectmanagerandstandalone', 'projectmanager');
@@ -393,9 +397,41 @@ const seedRoles = async () => {
         console.log('Level 3: General Manager (can assign to Dept Heads, PMs and Standalone Roles)');
         console.log('Level 2: Department Head (can assign to Dept Heads, PMs and Standalone Roles, own dept staff)');
         console.log('Level 2: Project Managers and Standalone Roles (can assign to Dept Heads, PMs and Standalone Roles, own dept staff)');
-        console.log('Level 1: Staff (can assign to Dept Heads, PMs and Standalone Roles, own dept staff)');
-        console.log('\n⚠️  Note: All roles except Super Admin can be edited or deleted through the UI');
+        // 3. Update managedRoles for each role
+        console.log('🔄 Updating managedRoles permissions...');
 
+        // Helper to get role ID by name
+        const getRoleId = async (name) => {
+            const role = await Role.findOne({ name });
+            return role ? role._id : null;
+        };
+
+        const rolesMap = {};
+        const allRoles = await Role.find({});
+        allRoles.forEach(r => rolesMap[r.name] = r._id);
+
+        // Define who can manage whom
+        const roleManagementMap = {
+            'maindirector': ['director', 'generalmanager', 'departmenthead', 'projectmanager', 'standalonerole', 'staff'],
+            'director': ['generalmanager', 'departmenthead', 'projectmanager', 'standalonerole', 'staff'],
+            'generalmanager': ['departmenthead', 'projectmanager', 'standalonerole', 'staff'],
+        };
+
+        for (const [managerName, managedNames] of Object.entries(roleManagementMap)) {
+            const managerRoleId = rolesMap[managerName];
+            if (managerRoleId) {
+                const managedRoleIds = managedNames
+                    .map(name => rolesMap[name])
+                    .filter(id => id); // Filter out nulls
+
+                await Role.findByIdAndUpdate(managerRoleId, {
+                    managedRoles: managedRoleIds
+                });
+                console.log(`Updated managedRoles for ${managerName}`);
+            }
+        }
+
+        console.log('\n✅ Cleanup and permissions update completed successfully!');
         process.exit(0);
     } catch (error) {
         console.error('❌ Error seeding roles:', error);

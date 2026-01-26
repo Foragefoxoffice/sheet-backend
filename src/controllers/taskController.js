@@ -117,7 +117,7 @@ export const createTask = async (req, res) => {
             // Special Notification Rules
 
             // Rule 1: Main Director assigns to Executive-level (Staff/Level 1), notify Assignee's Dept Head
-            const isMainDirector = currentRoleName === 'maindirector' || currentRoleName === 'director';
+            const isMainDirector = currentRoleName === 'maindirector';
             const isExecutive = assignedRoleLevel === 1 || assignedRoleName === 'staff';
 
             if (isMainDirector && isExecutive && assignedUser.department) {
@@ -295,7 +295,7 @@ export const getAllTasks = async (req, res) => {
         let tasks;
 
         // 1. Super Admin, Main Director, Director, General Manager - View ALL Tasks
-        if (['superadmin', 'maindirector', 'director', 'director2', 'generalmanager'].includes(currentRoleName) ||
+        if (['superadmin', 'maindirector', 'director', 'generalmanager'].includes(currentRoleName) ||
             currentUserRole?.permissions?.viewAllTasks) {
 
             tasks = await Task.find()
@@ -344,12 +344,18 @@ export const getAllTasks = async (req, res) => {
                     .populate({
                         path: 'createdBy',
                         select: 'name email role designation department',
-                        populate: { path: 'role', select: 'displayName' }
+                        populate: [
+                            { path: 'role', select: 'displayName' },
+                            { path: 'department', select: 'name' }
+                        ]
                     })
                     .populate({
                         path: 'assignedTo',
                         select: 'name email role designation department',
-                        populate: { path: 'role', select: 'displayName' }
+                        populate: [
+                            { path: 'role', select: 'displayName' },
+                            { path: 'department', select: 'name' }
+                        ]
                     })
                     .populate('approvedBy', 'name email role')
                     .populate('forwardedBy', 'name email')
@@ -368,12 +374,18 @@ export const getAllTasks = async (req, res) => {
                 .populate({
                     path: 'createdBy',
                     select: 'name email role designation department',
-                    populate: { path: 'role', select: 'displayName' }
+                    populate: [
+                        { path: 'role', select: 'displayName' },
+                        { path: 'department', select: 'name' }
+                    ]
                 })
                 .populate({
                     path: 'assignedTo',
                     select: 'name email role designation department',
-                    populate: { path: 'role', select: 'displayName' }
+                    populate: [
+                        { path: 'role', select: 'displayName' },
+                        { path: 'department', select: 'name' }
+                    ]
                 })
                 .populate('approvedBy', 'name email role')
                 .populate('forwardedBy', 'name email')
@@ -665,7 +677,7 @@ export const addTaskComment = async (req, res) => {
             const currentUserRole = await Role.findById(req.user.role._id || req.user.role);
             const currentRoleName = currentUserRole?.name?.toLowerCase().replace(/\s+/g, '');
 
-            if (['superadmin', 'maindirector', 'director', 'director2', 'generalmanager'].includes(currentRoleName)) {
+            if (['superadmin', 'maindirector', 'director', 'generalmanager'].includes(currentRoleName)) {
                 canComment = true;
             }
         }
