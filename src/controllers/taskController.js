@@ -18,25 +18,31 @@ const ROLE_HIERARCHY = {
 // @access  Private
 export const createTask = async (req, res) => {
     try {
-        const { task, assignedToEmail, priority, durationType, durationValue, notes, isSelfTask, taskGivenBy, taskGivenByName: providedTaskGivenByName } = req.body;
+        const { task, assignedToEmail, assignedToUserId, priority, durationType, durationValue, notes, isSelfTask, taskGivenBy, taskGivenByName: providedTaskGivenByName } = req.body;
         const currentUser = req.user;
 
         if (!task) {
             return res.status(400).json({ error: 'Task description is required' });
         }
 
-        let targetEmail = assignedToEmail;
+        let assignedUser;
+
         if (isSelfTask) {
-            targetEmail = currentUser.email;
+            assignedUser = await User.findById(currentUser._id).populate('role department');
+        } else if (assignedToUserId) {
+            assignedUser = await User.findById(assignedToUserId).populate('role department');
+        } else {
+            // Fallback for legacy requests or if only email provided
+            let targetEmail = assignedToEmail;
+            
+            if (!targetEmail) {
+                return res.status(400).json({ error: 'Please select a user to assign the task to' });
+            }
+            assignedUser = await User.findOne({ email: targetEmail }).populate('role department');
         }
 
-        if (!targetEmail) {
-            return res.status(400).json({ error: 'Please select a user to assign the task to' });
-        }
-
-        const assignedUser = await User.findOne({ email: targetEmail }).populate('role department');
         if (!assignedUser) {
-            return res.status(404).json({ error: `Assigned user not found: ${targetEmail}` });
+            return res.status(404).json({ error: `Assigned user not found` });
         }
 
         // Get Role details for permissions/notifications logic
@@ -58,7 +64,19 @@ export const createTask = async (req, res) => {
 
         // Find task giver if provided
         let taskGivenByName = providedTaskGivenByName || '';
-        if (taskGivenBy && !taskGivenByName) {
+        if (req.body.taskGivenByUserId) {
+            const giverUser = await User.findById(req.body.taskGivenByUserId);
+            if (giverUser) {
+                taskGivenByName = giverUser.name;
+                // Update the email stored to match the found user, to keep data consistent
+                // taskGivenBy variable is essentially the email string in the schema
+                // so we might want to ensure we store the correct email if we found the user by ID
+                if (giverUser.email) {
+                    req.body.taskGivenBy = giverUser.email; 
+                }
+            }
+        } else if (taskGivenBy && !taskGivenByName) {
+             // Fallback to email lookup
             const giverUser = await User.findOne({ email: taskGivenBy });
             if (giverUser) {
                 taskGivenByName = giverUser.name;
