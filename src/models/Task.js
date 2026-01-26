@@ -79,6 +79,31 @@ const taskSchema = new mongoose.Schema(
             type: String,
             default: '',
         },
+        isForwarded: {
+            type: Boolean,
+            default: false,
+        },
+        forwardedBy: {
+            type: mongoose.Schema.Types.ObjectId,
+            ref: 'User',
+        },
+        forwardedByEmail: {
+            type: String,
+        },
+        forwardedByName: {
+            type: String,
+        },
+        forwardedAt: {
+            type: Date,
+        },
+        currentApprover: {
+            type: mongoose.Schema.Types.ObjectId,
+            ref: 'User',
+        },
+        forwarderApproved: {
+            type: Boolean,
+            default: false,
+        },
         comments: [{
             text: {
                 type: String,

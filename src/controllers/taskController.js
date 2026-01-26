@@ -192,6 +192,7 @@ export const getTasks = async (req, res) => {
                 select: 'name email role designation',
                 populate: { path: 'role', select: 'displayName' }
             })
+            .populate('forwardedBy', 'name email')
             .populate('comments.createdBy', 'name role designation')
             .sort({ createdAt: -1 });
 
@@ -265,6 +266,7 @@ export const getAssignedTasks = async (req, res) => {
                 path: 'approvedBy',
                 select: 'name email'
             })
+            .populate('forwardedBy', 'name email')
             .populate('comments.createdBy', 'name role designation')
             .sort({ createdAt: -1 });
 
@@ -317,6 +319,7 @@ export const getAllTasks = async (req, res) => {
                     path: 'approvedBy',
                     select: 'name email'
                 })
+                .populate('forwardedBy', 'name email')
                 .populate('comments.createdBy', 'name role designation')
                 .sort({ createdAt: -1 });
 
@@ -330,11 +333,12 @@ export const getAllTasks = async (req, res) => {
                 const departmentUsers = await User.find({ department: currentUser.department }).select('email');
                 const departmentEmails = departmentUsers.map(u => u.email);
 
-                // Tasks where ASSIGNEE is in department OR CREATOR is in department
+                // Tasks where ASSIGNEE is in department OR CREATOR is in department OR FORWARDED BY me
                 tasks = await Task.find({
                     $or: [
                         { assignedToEmail: { $in: departmentEmails } },
-                        { createdByEmail: currentUser.email }
+                        { createdByEmail: currentUser.email },
+                        { forwardedByEmail: currentUser.email } // Include tasks forwarded by this Dep Head
                     ]
                 })
                     .populate({
@@ -348,6 +352,7 @@ export const getAllTasks = async (req, res) => {
                         populate: { path: 'role', select: 'displayName' }
                     })
                     .populate('approvedBy', 'name email role')
+                    .populate('forwardedBy', 'name email')
                     .populate('comments.createdBy', 'name role designation')
                     .sort({ createdAt: -1 });
             }
@@ -371,6 +376,7 @@ export const getAllTasks = async (req, res) => {
                     populate: { path: 'role', select: 'displayName' }
                 })
                 .populate('approvedBy', 'name email role')
+                .populate('forwardedBy', 'name email')
                 .populate('comments.createdBy', 'name role designation')
                 .sort({ createdAt: -1 });
         }
@@ -465,11 +471,22 @@ export const updateTaskStatus = async (req, res) => {
             task.approvalStatus = 'Pending';
             task.approvedBy = undefined;
             task.approvedAt = undefined;
+            
+            // Set Initial Approver
+            if (task.isForwarded && task.forwardedBy) {
+                task.currentApprover = task.forwardedBy;
+                task.forwarderApproved = false; // Reset forwarder approval status
+            } else {
+                task.currentApprover = task.createdBy;
+            }
+
         } else if (status === 'In Progress' || status === 'Pending') {
             // If moved back to In Progress or Pending, set approval status to Pending
             task.approvalStatus = 'Pending';
             task.approvedBy = undefined;
             task.approvedAt = undefined;
+            task.currentApprover = undefined; // Clear approver
+            task.forwarderApproved = false;
         }
 
         await task.save();
@@ -523,6 +540,10 @@ export const updateTask = async (req, res) => {
         else if (task.createdByEmail === userEmail && currentUserRole?.permissions?.editOwnTasks) {
             canUpdate = true;
         }
+        // Assignee (Department Head/Manager) can update (primarily for forwarding)
+        else if (task.assignedToEmail === userEmail && ['departmenthead', 'manager'].includes(currentRoleName)) {
+            canUpdate = true;
+        }
 
         if (!canUpdate) {
             return res.status(403).json({ error: 'Not authorized to update this task' });
@@ -540,6 +561,16 @@ export const updateTask = async (req, res) => {
             if (!assignedUser) {
                 return res.status(404).json({ error: 'Assigned user not found' });
             }
+            // Check if this is a "Forward" action
+            // If the person determining the edit is the value of 'assignedTo', it is a forward
+            if (task.assignedToEmail === userEmail) {
+                task.isForwarded = true;
+                task.forwardedBy = req.user._id;
+                task.forwardedByEmail = req.user.email;
+                task.forwardedByName = req.user.name;
+                task.forwardedAt = new Date();
+            }
+
             task.assignedTo = assignedUser._id;
             task.assignedToName = assignedUser.name;
             task.assignedToEmail = assignedUser.email;
