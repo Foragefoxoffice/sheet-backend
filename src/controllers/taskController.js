@@ -34,7 +34,7 @@ export const createTask = async (req, res) => {
         } else {
             // Fallback for legacy requests or if only email provided
             let targetEmail = assignedToEmail;
-            
+
             if (!targetEmail) {
                 return res.status(400).json({ error: 'Please select a user to assign the task to' });
             }
@@ -72,11 +72,11 @@ export const createTask = async (req, res) => {
                 // taskGivenBy variable is essentially the email string in the schema
                 // so we might want to ensure we store the correct email if we found the user by ID
                 if (giverUser.email) {
-                    req.body.taskGivenBy = giverUser.email; 
+                    req.body.taskGivenBy = giverUser.email;
                 }
             }
         } else if (taskGivenBy && !taskGivenByName) {
-             // Fallback to email lookup
+            // Fallback to email lookup
             const giverUser = await User.findOne({ email: taskGivenBy });
             if (giverUser) {
                 taskGivenByName = giverUser.name;
@@ -286,17 +286,30 @@ export const getAssignedTasks = async (req, res) => {
 // @desc    Get all tasks (role-based filtering)
 // @route   GET /api/tasks/all
 // @access  Private
+// @desc    Get all tasks (role-based filtering)
+// @route   GET /api/tasks/all
+// @access  Private
+import mongoose from 'mongoose'; // Added mongoose import for ObjectId.isValid
 export const getAllTasks = async (req, res) => {
     try {
         const currentUser = req.user;
         const Role = (await import('../models/Role.js')).default;
-        const currentUserRole = await Role.findById(currentUser.role._id || currentUser.role);
-        const currentRoleName = currentUserRole?.name?.toLowerCase().replace(/\s+/g, '');
+
+        // Handle case where role might be a string (legacy/default) or an ObjectId
+        let currentUserRole = null;
+        if (currentUser.role && typeof currentUser.role === 'object' && currentUser.role._id) {
+            currentUserRole = await Role.findById(currentUser.role._id);
+        } else if (currentUser.role && mongoose.Types.ObjectId.isValid(currentUser.role)) {
+            currentUserRole = await Role.findById(currentUser.role);
+        }
+
+        const currentRoleName = currentUserRole?.name?.toLowerCase().replace(/\s+/g, '') || 'staff';
         let tasks;
 
         // 1. Super Admin, Main Director, Director, General Manager - View ALL Tasks
+        // Explicitly exclude Staff from this block even if permissions are wonky
         if (['superadmin', 'maindirector', 'director', 'generalmanager'].includes(currentRoleName) ||
-            currentUserRole?.permissions?.viewAllTasks) {
+            (currentUserRole?.permissions?.viewAllTasks && currentRoleName !== 'staff')) {
 
             tasks = await Task.find()
                 .populate({
@@ -325,7 +338,8 @@ export const getAllTasks = async (req, res) => {
 
         }
         // 2. Department Heads - View tasks assigned to staff within their department
-        else if (['manager', 'departmenthead'].includes(currentRoleName)) {
+        // Explicitly exclude Staff from this block
+        else if (['manager', 'departmenthead'].includes(currentRoleName) && currentRoleName !== 'staff') {
             if (!currentUser.department) {
                 tasks = [];
             } else {
@@ -367,8 +381,8 @@ export const getAllTasks = async (req, res) => {
         else {
             tasks = await Task.find({
                 $or: [
-                    { assignedToEmail: currentUser.email },
-                    { createdByEmail: currentUser.email }
+                    { assignedTo: currentUser._id },
+                    { createdBy: currentUser._id }
                 ]
             })
                 .populate({
@@ -483,7 +497,7 @@ export const updateTaskStatus = async (req, res) => {
             task.approvalStatus = 'Pending';
             task.approvedBy = undefined;
             task.approvedAt = undefined;
-            
+
             // Set Initial Approver
             if (task.isForwarded && task.forwardedBy) {
                 task.currentApprover = task.forwardedBy;
@@ -530,7 +544,7 @@ export const updateTaskStatus = async (req, res) => {
 // @access  Private
 export const updateTask = async (req, res) => {
     try {
-        const { task: taskDescription, assignedToEmail, priority, dueDate, notes } = req.body;
+        const { task: taskDescription, assignedToEmail, assignedToUserId, priority, dueDate, notes } = req.body;
 
         const task = await Task.findById(req.params.id);
         if (!task) {
@@ -553,7 +567,7 @@ export const updateTask = async (req, res) => {
             canUpdate = true;
         }
         // Assignee (Department Head/Manager) can update (primarily for forwarding)
-        else if (task.assignedToEmail === userEmail && ['departmenthead', 'manager'].includes(currentRoleName)) {
+        else if ((task.assignedToEmail === userEmail || task.assignedTo?.toString() === req.user._id.toString()) && ['departmenthead', 'manager'].includes(currentRoleName)) {
             canUpdate = true;
         }
 
@@ -567,25 +581,36 @@ export const updateTask = async (req, res) => {
         if (dueDate) task.dueDate = new Date(dueDate);
         if (notes !== undefined) task.notes = notes;
 
-        // If changing assignee
-        if (assignedToEmail && assignedToEmail !== task.assignedToEmail) {
-            const assignedUser = await User.findOne({ email: assignedToEmail });
-            if (!assignedUser) {
-                return res.status(404).json({ error: 'Assigned user not found' });
-            }
-            // Check if this is a "Forward" action
-            // If the person determining the edit is the value of 'assignedTo', it is a forward
-            if (task.assignedToEmail === userEmail) {
-                task.isForwarded = true;
-                task.forwardedBy = req.user._id;
-                task.forwardedByEmail = req.user.email;
-                task.forwardedByName = req.user.name;
-                task.forwardedAt = new Date();
-            }
+        // If changing assignee (Check by ID if provided, otherwise Email)
+        let assignedUser = null;
+        if (assignedToUserId) {
+            assignedUser = await User.findById(assignedToUserId);
+        } else if (assignedToEmail) {
+            assignedUser = await User.findOne({ email: assignedToEmail });
+        }
 
-            task.assignedTo = assignedUser._id;
-            task.assignedToName = assignedUser.name;
-            task.assignedToEmail = assignedUser.email;
+        if (assignedUser) {
+            // Check if actual change in assignee
+            if (assignedUser._id.toString() !== task.assignedTo.toString()) {
+                // Check if this is a "Forward" action
+                // If the person determining the edit is the current assignee, it is a forward
+                const isCurrentAssignee = (task.assignedToEmail === userEmail && userEmail) || (task.assignedTo?.toString() === req.user._id.toString());
+
+                if (isCurrentAssignee) {
+                    task.isForwarded = true;
+                    task.forwardedBy = req.user._id;
+                    task.forwardedByEmail = req.user.email;
+                    task.forwardedByName = req.user.name;
+                    task.forwardedAt = new Date();
+                }
+
+                task.assignedTo = assignedUser._id;
+                task.assignedToName = assignedUser.name;
+                task.assignedToEmail = assignedUser.email;
+            }
+        } else if (assignedToEmail || assignedToUserId) {
+            // User tried to assign but not found
+            return res.status(404).json({ error: 'Assigned user not found' });
         }
 
         await task.save();

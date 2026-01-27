@@ -415,20 +415,60 @@ export const getUsersForTaskAssignment = async (req, res) => {
 
         // 5. Staff
         // Can assign tasks only to Department Heads, Project Managers, and Standalone Roles.
+        // AND Can assign or forward tasks within their own department.
         else if (currentRoleName === 'staff') {
-            const targetRoleNames = [
-                'manager', 'Manager',
-                'departmenthead', 'Department Head', 'DepartmentHead',
-                'projectmanager', 'Project Manager', 'ProjectManager',
-                'standalone', 'standalonerole', 'Standalone Role', 'StandaloneRole'
-            ];
-            const allowedRoleIds = await getRoleIds(targetRoleNames);
-            query = {
-                $or: [
-                    { role: { $in: allowedRoleIds } },
-                    { department: currentUser.department }
-                ]
-            };
+            // STRATEGY: Fetch ALL users and filter in memory to guarantee correctness
+
+            // 1. Fetch everyone
+            const allUsers = await User.find({})
+                .select('name email role designation department')
+                .populate('role', 'name displayName level')
+                .populate('department', 'name')
+                .sort({ name: 1 });
+
+            // 2. Filter
+            const myDeptId = String(currentUser.department?._id || currentUser.department || '');
+
+            const filteredUsers = allUsers.filter(u => {
+                // 1. Same Department (Everyone in own dept)
+                const uDeptId = String(u.department?._id || u.department || '');
+                if (myDeptId && uDeptId === myDeptId) {
+                    return true;
+                }
+
+                // 2. Role Check (Dept Head, Manager, PM, Standalone) - FROM ANY DEPT
+                if (u.role) {
+                    // Normalize: lowercase, remove spaces
+                    const rName = (u.role.name || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+                    const rDisplay = (u.role.displayName || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+
+                    // Explicitly exclude General Manager
+                    if (rName.includes('generalmanager') || rDisplay.includes('generalmanager')) {
+                        return false;
+                    }
+
+                    // Allowed Roles (normalized) logic
+                    // We want to match 'manager', 'departmenthead', 'standalone' variations.
+
+                    // 1. Any 'manager' (except General Manager which is already excluded above)
+                    // This covers "Project Manager", "Sales Manager", "Technical Manager", etc.
+                    if (rName.includes('manager')) return true;
+
+                    // 2. Department Head
+                    if (rName.includes('departmenthead')) return true;
+
+                    // 3. Standalone
+                    if (rName.includes('standalone')) return true;
+                }
+
+                return false;
+            });
+
+            return res.json({
+                success: true,
+                count: filteredUsers.length,
+                users: filteredUsers,
+            });
         }
 
         // 6. Project Managers and Standalone Roles

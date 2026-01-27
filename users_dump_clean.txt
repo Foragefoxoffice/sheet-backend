@@ -1,0 +1,189 @@
+--- Users ---
+Name: Super Admin
+Email: superadmin@company.com
+Role Name: superadmin
+---
+Name: Vasanth D Ramachandran
+Email: vasanth@vcgreen.in
+Role Name: maindirector
+---
+Name: Guna
+Email: guna@vcgreen.in
+Role Name: maindirector
+---
+Name: Sathish Xavier
+Email: xavier@vcgreen.in
+Role Name: director
+---
+Name: Sri Sathish D
+Email: sathish@vcgreen.in
+Role Name: generalmanager
+---
+Name: Radha R
+Email: radha@vcgreen.in
+Role Name: departmenthead
+---
+Name: Boopathi Raja P
+Email: accounts@vcgreen.in
+Role Name: staff
+---
+Name: Manikandaprabhu
+Email: ijomanikandaprabhu@gmail.com
+Role Name: generalmanager
+---
+Name: Ramya Krishna B
+Email: ramya@vcgreen.in
+Role Name: departmenthead
+---
+Name: Vishalakshi S
+Email: legal@vcgreen.in
+Role Name: staff
+---
+Name: Srinithi
+Email: info@vcgreen.in
+Role Name: staff
+---
+Name: Manikandaprabhu 2
+Email: ijocreationsdream@gmail.com
+Role Raw: null
+---
+Name: Ragavan
+Email: ragavan@vcgreen.in
+Role Name: departmenthead
+---
+Name: Iswarya
+Email: monitoring@vcgreen.in
+Role Name: standalonerole
+---
+Name: Tamaraiselvi N
+Email: tamarai@vcgreen.in
+Role Name: departmenthead
+---
+Name: Sangeetha E
+Email: purchase@vcgreen.in
+Role Name: staff
+---
+Name: Arun Durai
+Email: k@gmail.com
+Role Name: staff
+---
+Name: Poorani S
+Email: purchase@vcgreen.in
+Role Name: staff
+---
+Name: Senthil Kumar S
+Email: senthil@vcgreen.in
+Role Name: departmenthead
+---
+Name: Karthik
+Email: technical@vcgreen.in
+Role Name: staff
+---
+Name: Sasikumar R
+Email: technical@vcgreen.in
+Role Name: staff
+---
+Name: Kokila M
+Email: technical@vcgreen.in
+Role Name: staff
+---
+Name: Mythili K
+Email: technical@vcgreen.in
+Role Name: staff
+---
+Name: Srinithi S
+Email: technical@vcgreen.in
+Role Name: staff
+---
+Name: Arunpandiyan T
+Email: hr@vcgreen.in
+Role Name: departmenthead
+---
+Name: Varshapriya S
+Email: hr@vcgreen.in
+Role Name: staff
+---
+Name: Manonmani S
+Email: office@vcgreen.in
+Role Name: staff
+---
+Name: Thilagavathi M
+Email: thilaga@vcgreen.in
+Role Name: standalonerole
+---
+Name: Lalitha
+Email: info@vcgreen.in
+Role Name: staff
+---
+Name: Ravi Kumar M
+Email: ravi.ca@vcgreen.in
+Role Name: standalonerole
+---
+Name: Lakshmi D
+Email: accounts@vcgreen.in
+Role Name: staff
+---
+Name: Pavithra D
+Email: accounts@vcgreen.in
+Role Name: staff
+---
+Name: Sandhya S
+Email: legal@vcgreen.in
+Role Name: staff
+---
+Name: Ponraj P
+Email: legal@vcgreen.in
+Role Name: staff
+---
+Name: Madhumalar D
+Email: info@vcgreen.in
+Role Name: staff
+---
+Name: Sangeetha B
+Email: info@vcgreen.in
+Role Name: staff
+---
+Name: Kowsalya S
+Email: legal@vcgreen.in
+Role Name: staff
+---
+Name: Hemalatha
+Email: legal@vcgreen.in
+Role Name: staff
+---
+Name: Kirithika
+Email: legal@vcgreen.in
+Role Name: staff
+---
+Name: Dhivya
+Email: monitoring@vcgreen.in
+Role Name: staff
+---
+Name: Lavanya P
+Email: purchase@vcgreen.in
+Role Name: staff
+---
+Name: Rameswari S
+Email: purchase@vcgreen.in
+Role Name: staff
+---
+Name: Santhosh kathirvel
+Email: actewpdeveloper1@gmail.com
+Role Name: departmenthead
+---
+Name: Jahall
+Email: santhoshkathirvel007@gmail.com
+Role Name: departmenthead
+---
+Name: Sanjay
+Email: santhoshkathirvel007@gmail.com
+Role Name: departmenthead
+---
+Name: Sathyaraj
+Email: sathyaraj@vcgreen.in
+Role Name: departmenthead
+---
+Name: Inbaraj
+Email: project@vcgreen.in
+Role Name: departmenthead
+---
