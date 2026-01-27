@@ -18,7 +18,7 @@ export const getUsers = async (req, res) => {
 
         // Managers can only see users in their department (Department Head is exempted to see all users)
         const currentRoleName = (currentUserRole?.name || '').toLowerCase().replace(/\s+/g, '');
-        
+
         if (currentUserLevel === 2 && currentRoleName !== 'departmenthead') { // Manager level but not Dept Head
             if (!req.user.department) {
                 return res.json({
@@ -353,9 +353,9 @@ export const getUsersForTaskAssignment = async (req, res) => {
 
         // 1. Director Level (Main Director, Director, General Manager)
         // Can assign to anyone
-        else if (['maindirector', 'director', 'generalmanager'].includes(currentRoleName) || 
-            currentUser.name.includes('Vasanth') || 
-            currentUser.name.includes('Guna') || 
+        else if (['maindirector', 'director', 'generalmanager'].includes(currentRoleName) ||
+            currentUser.name.includes('Vasanth') ||
+            currentUser.name.includes('Guna') ||
             currentUser.name.includes('Sathish')) {
             query = {};
         }
