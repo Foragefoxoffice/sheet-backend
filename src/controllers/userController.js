@@ -390,13 +390,8 @@ export const getUsersForTaskAssignment = async (req, res) => {
                     const rName = (u.role.name || '').toLowerCase().replace(/[^a-z0-9]/g, '');
                     const rDisplay = (u.role.displayName || '').toLowerCase().replace(/[^a-z0-9]/g, '');
 
-                    // EXCLUDE General Manager explicitly
-                    if (rName.includes('general') || rDisplay.includes('general')) {
-                        return false;
-                    }
-
-                    // Allow: Department Head (manager), Project Manager, Standalone
-                    const targets = ['departmenthead', 'manager', 'projectmanager', 'standalone', 'standalonerole'];
+                    // Allow: General Manager, Department Head (manager), Project Manager, Standalone
+                    const targets = ['generalmanager', 'departmenthead', 'manager', 'projectmanager', 'standalone', 'standalonerole'];
 
                     if (targets.some(t => rName.includes(t) || rDisplay.includes(t))) {
                         return true;
@@ -472,21 +467,55 @@ export const getUsersForTaskAssignment = async (req, res) => {
         }
 
         // 6. Project Managers and Standalone Roles
-        // Can assign costs to Department Heads, Project Managers, and Standalone Roles.
+        // Can assign to Department Heads, Project Managers, and Standalone Roles.
+        // AND Can assign or forward tasks within their own department.
         else if (currentRoleName === 'projectmanager' || currentRoleName === 'standalone' || currentRoleName === 'standalonerole' || currentRoleName === 'projectmanagerandstandalone') {
-            const targetRoleNames = [
-                'manager', 'Manager',
-                'departmenthead', 'Department Head', 'DepartmentHead',
-                'projectmanager', 'Project Manager', 'ProjectManager',
-                'standalone', 'standalonerole', 'Standalone Role', 'StandaloneRole'
-            ];
-            const allowedRoleIds = await getRoleIds(targetRoleNames);
-            query = {
-                $or: [
-                    { role: { $in: allowedRoleIds } },
-                    { department: currentUser.department }
-                ]
-            };
+            // 1. Fetch everyone
+            const allUsers = await User.find({})
+                .select('name email role designation department')
+                .populate('role', 'name displayName level')
+                .populate('department', 'name')
+                .sort({ name: 1 });
+
+            // 2. Define safe comparison values
+            const myDeptId = String(currentUser.department?._id || currentUser.department || '');
+
+            // 3. Filter
+            const filteredUsers = allUsers.filter(u => {
+                // Criterion A: Same Department?
+                const uDeptId = String(u.department?._id || u.department || '');
+                if (myDeptId && uDeptId === myDeptId) {
+                    return true;
+                }
+
+                // Criterion B: Is Target Role? (Dept Head, PM, Standalone)
+                if (u.role) {
+                    const rName = (u.role.name || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+                    const rDisplay = (u.role.displayName || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+
+                    // EXCLUDE General Manager and above explicitly
+                    if (rName.includes('generalmanager') || rDisplay.includes('generalmanager') || 
+                        rName.includes('director') || rDisplay.includes('director') ||
+                        rName.includes('admin') || rDisplay.includes('admin')) {
+                        return false;
+                    }
+
+                    // Allow: Department Head (manager), Project Manager, Standalone
+                    const targets = ['departmenthead', 'manager', 'projectmanager', 'standalone', 'standalonerole'];
+
+                    if (targets.some(t => rName.includes(t) || rDisplay.includes(t))) {
+                        return true;
+                    }
+                }
+
+                return false;
+            });
+
+            return res.json({
+                success: true,
+                count: filteredUsers.length,
+                users: filteredUsers,
+            });
         }
 
         // Default: If role not matched above, fallback
