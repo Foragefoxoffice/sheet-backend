@@ -16,21 +16,16 @@ export const getTaskStatistics = async (req, res) => {
         const roleName = currentUserRole.name?.toLowerCase().replace(/\s+/g, '') || '';
         const allowedRoles = ['staff', 'projectmanager', 'standalone', 'standalonerole', 'projectmanagerandstandalone'];
 
-        // Users without viewReports permission only see their own tasks
-        // BUT if they are Staff/PM/Standalone, they can see tasks they created (assigned) as well
         if (!currentUserRole?.permissions?.viewReports) {
             if (allowedRoles.includes(roleName)) {
                 filter = {
                     $or: [
-                        { assignedToEmail: userEmail },
-                        { createdByEmail: userEmail }
+                        { assignedTo: req.user._id },
+                        { createdBy: req.user._id }
                     ]
                 };
-                
-                // Also allow them to see pending approvals count for tasks they created
-                // (The default check below uses 'viewApprovals' permission, we'll need to update that too if needed)
             } else {
-                filter.assignedToEmail = userEmail;
+                filter.assignedTo = req.user._id;
             }
         }
         // Users with viewReports can see all tasks (no filter)
@@ -71,7 +66,7 @@ export const getTaskStatistics = async (req, res) => {
         let pendingApprovals = 0;
         if (currentUserRole?.permissions?.viewApprovals || allowedRoles.includes(roleName)) {
             pendingApprovals = await Task.countDocuments({
-                createdByEmail: userEmail, // Only count their own created tasks needing approval
+                createdBy: req.user._id, // Only count their own created tasks needing approval
                 status: 'Completed',
                 approvalStatus: 'Pending',
             });
@@ -103,21 +98,28 @@ export const getUserReports = async (req, res) => {
 
         const userReports = await Promise.all(
             users.map(async (user) => {
-                const totalTasks = await Task.countDocuments({ assignedToEmail: user.email });
+                const query = {
+                    $or: [
+                        { assignedTo: user._id },
+                        { createdBy: user._id }
+                    ]
+                };
+
+                const totalTasks = await Task.countDocuments(query);
                 const completedTasks = await Task.countDocuments({
-                    assignedToEmail: user.email,
+                    ...query,
                     status: 'Completed',
                 });
                 const pendingTasks = await Task.countDocuments({
-                    assignedToEmail: user.email,
+                    ...query,
                     status: 'Pending',
                 });
                 const inProgressTasks = await Task.countDocuments({
-                    assignedToEmail: user.email,
+                    ...query,
                     status: 'In Progress',
                 });
                 const overdueTasks = await Task.countDocuments({
-                    assignedToEmail: user.email,
+                    ...query,
                     dueDate: { $lt: new Date() },
                     status: { $ne: 'Completed' },
                 });

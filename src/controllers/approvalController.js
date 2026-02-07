@@ -8,11 +8,6 @@ import { notifyTaskApproved, notifyTaskRejected } from '../services/notification
 export const getPendingApprovals = async (req, res) => {
     try {
         const userEmail = req.user.email;
-
-        // Find tasks created by this user that are Waiting for Approval
-        // Fetch pending approvals for current user
-        // Logic: Tasks where status is 'Waiting for Approval' AND 
-        // (currentApprover matches current user OR (currentApprover is NOT set AND createdByEmail matches current user))
         const tasks = await Task.find({
             status: 'Waiting for Approval',
             approvalStatus: 'Pending',
@@ -59,14 +54,14 @@ export const approveTask = async (req, res) => {
         // Check if user is the current approver
         const isCurrentApprover = (task.currentApprover && task.currentApprover.toString() === req.user._id.toString());
         const isCreator = task.createdByEmail === userEmail;
-        
+
         // If currentApprover is set, STRICTLY enforce it. If not set, fallback to creator.
         if (task.currentApprover) {
             if (!isCurrentApprover) {
                 return res.status(403).json({ error: 'You are not the assigned approver for this task' });
             }
         } else {
-             if (!isCreator) {
+            if (!isCreator) {
                 return res.status(403).json({ error: 'Only the task creator can approve this task' });
             }
         }
@@ -82,36 +77,36 @@ export const approveTask = async (req, res) => {
         // INTERMEDIATE APPROVAL LOGIC
         // If task is forwarded AND this is the Forwarder approving it (and not yet approved by forwarder)
         if (task.isForwarded && !task.forwarderApproved && task.forwardedBy && req.user._id.toString() === task.forwardedBy.toString()) {
-             // This is an intermediate approval
-             task.forwarderApproved = true;
-             task.currentApprover = task.createdBy; // Handover to original creator
-             
-             // Add a system note/comment about this approval
-             const approvalNote = comments ? `Forwarder Approval by ${req.user.name}: ${comments}` : `Approved by Forwarder ${req.user.name}`;
-             task.comments.push({
-                 text: `[System]: ${approvalNote}`,
-                 createdBy: req.user._id,
-                 createdByName: req.user.name,
-                 userRole: req.user.role?.name || 'Staff'
-             });
+            // This is an intermediate approval
+            task.forwarderApproved = true;
+            task.currentApprover = task.createdBy; // Handover to original creator
 
-             await task.save();
+            // Add a system note/comment about this approval
+            const approvalNote = comments ? `Forwarder Approval by ${req.user.name}: ${comments}` : `Approved by Forwarder ${req.user.name}`;
+            task.comments.push({
+                text: `[System]: ${approvalNote}`,
+                createdBy: req.user._id,
+                createdByName: req.user.name,
+                userRole: req.user.role?.name || 'Staff'
+            });
 
-             // Notify the Original Creator that it's now their turn
-             // (We might need a new notification function or reuse notifyStatusChanged logic but targeting creator)
-             const creator = await User.findById(task.createdBy);
-             if (creator) {
-                 // Reuse notifyStatusChanged but customize message logic inside that function or here
-                 // For now, simpler to just let them know status is Waiting for Approval (which it still is)
-                 const { notifyStatusChanged } = await import('../services/notificationService.js');
-                 notifyStatusChanged(task, creator, req.user, 'Waiting for Final Approval').catch(console.error);
-             }
+            await task.save();
 
-             return res.json({
-                 success: true,
-                 message: 'Intermediate approval granted. Task passed to original creator.',
-                 task
-             });
+            // Notify the Original Creator that it's now their turn
+            // (We might need a new notification function or reuse notifyStatusChanged logic but targeting creator)
+            const creator = await User.findById(task.createdBy);
+            if (creator) {
+                // Reuse notifyStatusChanged but customize message logic inside that function or here
+                // For now, simpler to just let them know status is Waiting for Approval (which it still is)
+                const { notifyStatusChanged } = await import('../services/notificationService.js');
+                notifyStatusChanged(task, creator, req.user, 'Waiting for Final Approval').catch(console.error);
+            }
+
+            return res.json({
+                success: true,
+                message: 'Intermediate approval granted. Task passed to original creator.',
+                task
+            });
         }
 
         // FINAL APPROVAL LOGIC
