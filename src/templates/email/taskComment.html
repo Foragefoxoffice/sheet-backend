@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Task Rejected &amp; Returned</title>
+    <title>New Comment on Task</title>
 </head>
 
 <body
@@ -18,11 +18,11 @@
                     <!-- Header -->
                     <tr>
                         <td
-                            style="background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%); padding: 36px 32px; text-align: center;">
-                            <div style="font-size: 40px; margin-bottom: 8px;">❌</div>
+                            style="background: linear-gradient(135deg, #6366f1 0%, #4f46e5 100%); padding: 36px 32px; text-align: center;">
+                            <div style="font-size: 40px; margin-bottom: 8px;">💬</div>
                             <h1
                                 style="margin: 0; color: #ffffff; font-size: 24px; font-weight: 700; letter-spacing: -0.3px;">
-                                Task Rejected & Returned</h1>
+                                New Comment on Task</h1>
                         </td>
                     </tr>
 
@@ -33,12 +33,12 @@
                                 Hi <strong>{{userName}}</strong>,
                             </p>
                             <p style="margin: 0 0 24px; font-size: 15px; line-height: 1.6; color: #4b5563;">
-                                The task has been returned for correction. Please review and resubmit.
+                                A new comment has been added to your task. Please review the comment.
                             </p>
 
                             <!-- Task Details Card -->
                             <table role="presentation"
-                                style="width: 100%; border-collapse: collapse; background-color: #fef2f2; border-radius: 12px; overflow: hidden; border: 1px solid #fecaca; margin-bottom: 24px;">
+                                style="width: 100%; border-collapse: collapse; background-color: #f8fafc; border-radius: 12px; overflow: hidden; border: 1px solid #e5e7eb; margin-bottom: 20px;">
                                 <tr>
                                     <td style="padding: 24px;">
                                         <!-- Task ID -->
@@ -65,28 +65,30 @@
                                                     {{taskTitle}}</td>
                                             </tr>
                                         </table>
-                                        <!-- Rejected By -->
-                                        <table role="presentation"
-                                            style="width: 100%; border-collapse: collapse; margin-bottom: 16px;">
-                                            <tr>
-                                                <td
-                                                    style="width: 130px; font-size: 13px; color: #6b7280; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; padding: 6px 0; vertical-align: top;">
-                                                    Rejected By</td>
-                                                <td style="font-size: 15px; color: #1f2937; padding: 6px 0;">
-                                                    {{rejectedBy}}</td>
-                                            </tr>
-                                        </table>
-                                        <!-- Reason -->
+                                        <!-- Commented By -->
                                         <table role="presentation" style="width: 100%; border-collapse: collapse;">
                                             <tr>
                                                 <td
                                                     style="width: 130px; font-size: 13px; color: #6b7280; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; padding: 6px 0; vertical-align: top;">
-                                                    Reason/Notes</td>
-                                                <td
-                                                    style="font-size: 14px; color: #991b1b; padding: 6px 0; font-weight: 500;">
-                                                    {{rejectionReason}}</td>
+                                                    Commented By</td>
+                                                <td style="font-size: 15px; color: #1f2937; padding: 6px 0;">
+                                                    {{commentedBy}}</td>
                                             </tr>
                                         </table>
+                                    </td>
+                                </tr>
+                            </table>
+
+                            <!-- Comment Bubble -->
+                            <table role="presentation"
+                                style="width: 100%; border-collapse: collapse; background-color: #eef2ff; border-radius: 12px; overflow: hidden; border: 1px solid #c7d2fe; margin-bottom: 24px;">
+                                <tr>
+                                    <td style="padding: 20px 24px;">
+                                        <p
+                                            style="margin: 0 0 6px; font-size: 12px; color: #6366f1; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px;">
+                                            Comment</p>
+                                        <p style="margin: 0; font-size: 15px; color: #1f2937; line-height: 1.6;">
+                                            {{commentText}}</p>
                                     </td>
                                 </tr>
                             </table>
@@ -96,8 +98,8 @@
                                 <tr>
                                     <td align="center" style="padding-top: 8px;">
                                         <a href="{{taskLink}}"
-                                            style="display: inline-block; background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%); color: #ffffff; text-decoration: none; padding: 14px 40px; border-radius: 10px; font-size: 15px; font-weight: 600; letter-spacing: 0.3px;">
-                                            View Task & Resubmit →
+                                            style="display: inline-block; background: linear-gradient(135deg, #6366f1 0%, #4f46e5 100%); color: #ffffff; text-decoration: none; padding: 14px 40px; border-radius: 10px; font-size: 15px; font-weight: 600; letter-spacing: 0.3px;">
+                                            View Task & Reply →
                                         </a>
                                     </td>
                                 </tr>

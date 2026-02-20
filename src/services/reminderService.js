@@ -1,7 +1,7 @@
 import cron from 'node-cron';
 import Task from '../models/Task.js';
 import User from '../models/User.js';
-import { sendEmail, sendWhatsApp } from './notificationService.js';
+import { sendEmail } from './notificationService.js';
 
 // Generate task list HTML for email
 const generateTaskListHTML = (tasks) => {
@@ -38,23 +38,18 @@ const sendDailyReminderToUser = async (user, tasks) => {
             new Date(task.dueDate) < new Date() && task.status !== 'Completed'
         );
 
+        const overdueHTML = overdueTasks.length > 0
+            ? `<table role="presentation" style="width: 100%; border-collapse: collapse; margin: 16px 0 0;"><tr><td style="padding: 14px 20px; background-color: #fef2f2; border-left: 4px solid #ef4444; border-radius: 6px;"><p style="margin: 0; font-size: 14px; color: #991b1b; font-weight: 600;">⚠️ ${overdueTasks.length} task${overdueTasks.length > 1 ? 's are' : ' is'} overdue!</p></td></tr></table>`
+            : '';
+
         const emailData = {
             userName: user.name,
             pendingCount: tasks.length,
             overdueCount: overdueTasks.length,
+            overdueHTML: overdueHTML,
             tasksList: generateTaskListHTML(tasks),
             taskLink: `${process.env.FRONTEND_URL || 'http://localhost:5173'}/tasks`,
         };
-
-        // Prepare WhatsApp message
-        const taskSummary = tasks.slice(0, 3).map((task, index) =>
-            `${index + 1}. ${task.task} (${task.priority} - Due: ${new Date(task.dueDate).toLocaleDateString()})`
-        ).join('\n');
-
-        const moreTasksText = tasks.length > 3 ? `\n...and ${tasks.length - 3} more task${tasks.length - 3 > 1 ? 's' : ''}` : '';
-        const overdueText = overdueTasks.length > 0 ? `\n\n⚠️ ${overdueTasks.length} task${overdueTasks.length > 1 ? 's are' : ' is'} overdue!` : '';
-
-        const whatsappMessage = `☀️ *Good Morning ${user.name}!*\n\n📋 You have *${tasks.length} pending task${tasks.length > 1 ? 's' : ''}* today:\n\n${taskSummary}${moreTasksText}${overdueText}\n\n💪 Let's make today productive!\n\nView all: ${emailData.taskLink}`;
 
         // Send email
         await sendEmail(
@@ -64,38 +59,35 @@ const sendDailyReminderToUser = async (user, tasks) => {
             emailData
         );
 
-        // Send WhatsApp if configured
+        // Send WhatsApp if configured — one message per pending task
         if (user.whatsapp) {
-            // Use template if configured, otherwise fallback to plain text
-            const templateName = 'task_reminder_system_notification';
-            if (templateName) {
-                const { sendWhatsAppTemplate } = await import('./notificationService.js');
+            const { sendWhatsAppTemplate } = await import('./notificationService.js');
+            const templateName = 'daily_pending_task_alert';
 
-                // Format task summary for template ({{3}} - List)
-                // New format: Line separated list
-                // 1. Task Name - Priority
-                // 2. Task Name - Priority
-                const taskList = tasks.slice(0, 5).map((task, index) =>
-                    `${index + 1}. ${task.task} - ${task.priority}`
-                ).join('\n');
-
-                // Add more tasks indicator if needed
-                const fullTaskList = tasks.length > 5
-                    ? `${taskList}\n...and ${tasks.length - 5} more`
-                    : taskList;
+            for (const task of tasks) {
+                const dueDate = new Date(task.dueDate).toLocaleDateString('en-US', {
+                    year: 'numeric', month: 'long', day: 'numeric'
+                });
+                const dueTime = task.targetTime
+                    ? new Date(`2000-01-01T${task.targetTime}`).toLocaleTimeString('en-US', {
+                        hour: 'numeric', minute: 'numeric', hour12: true
+                    })
+                    : '';
+                const dueDateTime = dueTime ? `${dueDate} ${dueTime}` : dueDate;
 
                 await sendWhatsAppTemplate(
                     user.whatsapp,
                     templateName,
                     [
-                        user.name,                    // {{1}} - User name
-                        tasks.length.toString(),      // {{2}} - Task count
-                        fullTaskList                  // {{3}} - List
+                        user.name,                        // {{1}} - User name
+                        task.sno.toString(),              // {{2}} - Task ID
+                        task.task,                        // {{3}} - Task Name
+                        task.priority,                    // {{4}} - Priority
+                        dueDateTime,                      // {{5}} - Due Date & Time
+                        task.notes || 'No additional notes' // {{6}} - Notes
                     ],
                     'en'
                 );
-            } else {
-                await sendWhatsApp(user.whatsapp, whatsappMessage);
             }
         }
 

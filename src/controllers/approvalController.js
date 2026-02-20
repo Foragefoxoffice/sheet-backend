@@ -92,14 +92,36 @@ export const approveTask = async (req, res) => {
 
             await task.save();
 
-            // Notify the Original Creator that it's now their turn
-            // (We might need a new notification function or reuse notifyStatusChanged logic but targeting creator)
+            // Notify the Original Creator (A) that it's now their turn to approve
             const creator = await User.findById(task.createdBy);
-            if (creator) {
-                // Reuse notifyStatusChanged but customize message logic inside that function or here
-                // For now, simpler to just let them know status is Waiting for Approval (which it still is)
-                const { notifyStatusChanged } = await import('../services/notificationService.js');
-                notifyStatusChanged(task, creator, req.user, 'Waiting for Final Approval').catch(console.error);
+            if (creator && creator.whatsapp) {
+                try {
+                    const { sendWhatsAppTemplate, getWhatsappConfig } = await import('../services/notificationService.js');
+                    const config = getWhatsappConfig();
+
+                    if (config.apiUrl && config.accessToken) {
+                        const dueDateTime = task.targetTime
+                            ? `${new Date(task.dueDate).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })} ${new Date('2000-01-01T' + task.targetTime).toLocaleTimeString('en-US', { hour: 'numeric', minute: 'numeric', hour12: true })}`
+                            : new Date(task.dueDate).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
+
+                        sendWhatsAppTemplate(
+                            creator.whatsapp,
+                            'task_status_alert',
+                            [
+                                creator.name,                       // {{1}} Recipient (A)
+                                'Waiting for Final Approval',       // {{2}} New Status
+                                task.sno.toString(),                // {{3}} Task ID
+                                task.task,                          // {{4}} Task Name
+                                req.user.name,                      // {{5}} Updated By (B the forwarder)
+                                dueDateTime,                        // {{6}} Due Date & Time
+                                task.notes || 'No notes'            // {{7}} Notes
+                            ],
+                            'en'
+                        ).catch(err => console.error('WhatsApp notification error (intermediate approval to A):', err));
+                    }
+                } catch (notifError) {
+                    console.error('Intermediate approval notification error:', notifError);
+                }
             }
 
             return res.json({
@@ -126,12 +148,21 @@ export const approveTask = async (req, res) => {
 
         await task.save();
 
-        // Send notification to assigned user
+        // Send approval notification to C (current assignee) and also B (forwarder) if forwarded
         const assignedUser = await User.findById(task.assignedTo);
         if (assignedUser) {
             notifyTaskApproved(task, assignedUser, req.user).catch(err => {
-                console.error('Notification error:', err);
+                console.error('Notification error (assignee C):', err);
             });
+        }
+
+        if (task.isForwarded && task.forwardedBy) {
+            const forwarderUser = await User.findById(task.forwardedBy);
+            if (forwarderUser && forwarderUser._id.toString() !== assignedUser?._id.toString()) {
+                notifyTaskApproved(task, forwarderUser, req.user).catch(err => {
+                    console.error('Notification error (forwarder B):', err);
+                });
+            }
         }
 
         res.json({
@@ -159,9 +190,13 @@ export const rejectTask = async (req, res) => {
             return res.status(404).json({ error: 'Task not found' });
         }
 
-        // Only the creator can reject
-        if (task.createdByEmail !== userEmail) {
-            return res.status(403).json({ error: 'Only the task creator can reject this task' });
+        // Allow creator OR forwarder (before they've approved) to reject
+        const isCreator = task.createdByEmail === userEmail;
+        const isForwarderPendingApproval = task.isForwarded && !task.forwarderApproved &&
+            task.forwardedBy && task.forwardedBy.toString() === req.user._id.toString();
+
+        if (!isCreator && !isForwarderPendingApproval) {
+            return res.status(403).json({ error: 'Only the task creator or forwarder can reject this task' });
         }
 
         if (task.status !== 'Waiting for Approval') {
@@ -170,18 +205,31 @@ export const rejectTask = async (req, res) => {
 
         task.approvalStatus = 'Rejected';
         task.status = 'In Progress';
+        // Clear currentApprover so the flow resets
+        task.currentApprover = undefined;
 
         // Save rejection reason to approvalComments field
         task.approvalComments = `Rejected by ${req.user.name} on ${new Date().toLocaleDateString()}: ${reason || 'No reason provided'}`;
 
         await task.save();
 
-        // Send notification to assigned user
+        // Send rejection notification to C (current assignee)
         const assignedUser = await User.findById(task.assignedTo);
         if (assignedUser) {
             notifyTaskRejected(task, assignedUser, req.user, reason).catch(err => {
-                console.error('Notification error:', err);
+                console.error('Notification error (assignee C):', err);
             });
+        }
+
+        // If creator (A) is rejecting a forwarded task, also notify forwarder (B)
+        // If forwarder (B) is rejecting, don't notify themselves
+        if (isCreator && task.isForwarded && task.forwardedBy) {
+            const forwarderUser = await User.findById(task.forwardedBy);
+            if (forwarderUser && forwarderUser._id.toString() !== assignedUser?._id.toString()) {
+                notifyTaskRejected(task, forwarderUser, req.user, reason).catch(err => {
+                    console.error('Notification error (forwarder B):', err);
+                });
+            }
         }
 
         res.json({

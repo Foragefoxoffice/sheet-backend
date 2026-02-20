@@ -18,7 +18,7 @@ const createEmailTransporter = () => {
 };
 
 // Helper to get WhatsApp config (lazily evaluated to ensure env vars are loaded)
-const getWhatsappConfig = () => {
+export const getWhatsappConfig = () => {
     return {
         apiUrl: process.env.WHATSAPP_API_URL || (process.env.WHATSAPP_PHONE_NUMBER_ID ? `https://graph.facebook.com/v18.0/${process.env.WHATSAPP_PHONE_NUMBER_ID}/messages` : undefined),
         accessToken: process.env.WHATSAPP_ACCESS_TOKEN,
@@ -271,7 +271,28 @@ export const sendOTPWhatsApp = async (to, otp) => {
 // Notification functions for specific events
 
 
+// Helper to get priority badge colors for email templates
+const getPriorityColors = (priority) => {
+    switch (priority) {
+        case 'High': return { bg: '#fef2f2', color: '#dc2626' };
+        case 'Medium': return { bg: '#fffbeb', color: '#d97706' };
+        case 'Low': return { bg: '#f0fdf4', color: '#16a34a' };
+        default: return { bg: '#f3f4f6', color: '#6b7280' };
+    }
+};
+
+// Helper to get status badge colors for email templates
+const getStatusColors = (status) => {
+    switch (status) {
+        case 'Completed': return { bg: '#f0fdf4', color: '#16a34a' };
+        case 'In Progress': return { bg: '#eff6ff', color: '#2563eb' };
+        case 'Pending': return { bg: '#fffbeb', color: '#d97706' };
+        default: return { bg: '#f3f4f6', color: '#6b7280' };
+    }
+};
+
 export const notifyTaskAssigned = async (task, assignedUser, createdByUser) => {
+    const priorityColors = getPriorityColors(task.priority);
     const emailData = {
         userName: assignedUser.name,
         taskTitle: task.task,
@@ -288,6 +309,8 @@ export const notifyTaskAssigned = async (task, assignedUser, createdByUser) => {
             hour12: true
         }) : '',
         priority: task.priority,
+        priorityBg: priorityColors.bg,
+        priorityColor: priorityColors.color,
         notes: task.notes || 'No additional notes',
         taskLink: `${process.env.FRONTEND_URL || 'http://localhost:5173'}/tasks`,
     };
@@ -309,8 +332,20 @@ export const notifyTaskAssigned = async (task, assignedUser, createdByUser) => {
         const config = getWhatsappConfig();
         // Use template if configured AND Business API is available, otherwise fallback to plain text
         // Use user provided template name
-        const templateName = 'task_assignment_alert';
+        const templateName = 'fraud_alert_2'; // Updated template name
+
         if (config.apiUrl && config.accessToken) {
+            // New 7-variable template
+            // {{1}} - Assigned User Name
+            // {{2}} - Task ID
+            // {{3}} - Task Name
+            // {{4}} - Assigned By
+            // {{5}} - Priority
+            // {{6}} - Due Date & Time
+            // {{7}} - Notes
+
+            const dueDateTime = `${emailData.dueDate} ${emailData.dueTime}`.trim();
+
             whatsappResult = await sendWhatsAppTemplate(
                 assignedUser.whatsapp,
                 templateName,
@@ -319,10 +354,11 @@ export const notifyTaskAssigned = async (task, assignedUser, createdByUser) => {
                     task.sno.toString(),   // {{2}}
                     task.task,             // {{3}}
                     createdByUser.name,    // {{4}}
-                    emailData.dueDate,     // {{5}}
-                    task.priority          // {{6}}
+                    task.priority,         // {{5}}
+                    dueDateTime,           // {{6}}
+                    task.notes || 'No notes' // {{7}}
                 ],
-                'en'
+                'en_US'
             );
         } else {
             whatsappResult = await sendWhatsApp(assignedUser.whatsapp, whatsappMessage);
@@ -333,13 +369,26 @@ export const notifyTaskAssigned = async (task, assignedUser, createdByUser) => {
 };
 
 export const notifyStatusChanged = async (task, assignedUser, createdByUser, newStatus) => {
+    const statusColors = getStatusColors(newStatus);
     const emailData = {
         userName: createdByUser.name,
         taskTitle: task.task,
         taskNumber: task.sno,
         assignedTo: assignedUser.name,
         newStatus: newStatus,
-        statusColor: newStatus === 'Completed' ? '#10B981' : '#F59E0B',
+        statusBg: statusColors.bg,
+        statusColor: statusColors.color,
+        dueDate: new Date(task.dueDate).toLocaleDateString('en-US', {
+            year: 'numeric',
+            month: 'long',
+            day: 'numeric'
+        }),
+        dueTime: task.targetTime ? new Date(`2000-01-01T${task.targetTime}`).toLocaleTimeString('en-US', {
+            hour: 'numeric',
+            minute: 'numeric',
+            hour12: true
+        }) : '',
+        notes: task.notes || 'No additional notes',
         taskLink: `${process.env.FRONTEND_URL || 'http://localhost:5173'}/assigned-tasks`,
     };
 
@@ -359,17 +408,34 @@ export const notifyStatusChanged = async (task, assignedUser, createdByUser, new
         const config = getWhatsappConfig();
         // Use template if configured AND Business API is available, otherwise fallback to plain text
         // Use user provided template name
-        const templateName = 'task_status_change';
+        const templateName = 'task_status_alert'; // Updated template name
+
         if (config.apiUrl && config.accessToken) {
+            // New 7-variable template
+            // {{1}} - Recipient Name (Created By)
+            // {{2}} - New Status
+            // {{3}} - Task ID
+            // {{4}} - Task Name
+            // {{5}} - Updated By Name
+            // {{6}} - Due Date & Time (using existing logic if available or just date)
+            // {{7}} - Notes
+
+            // Construct Due Date & Time string for context
+            const dueDateTime = task.targetTime
+                ? `${new Date(task.dueDate).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })} ${new Date('2000-01-01T' + task.targetTime).toLocaleTimeString('en-US', { hour: 'numeric', minute: 'numeric', hour12: true })}`
+                : new Date(task.dueDate).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
+
             await sendWhatsAppTemplate(
                 createdByUser.whatsapp,
                 templateName,
                 [
                     createdByUser.name,    // {{1}}
-                    task.sno.toString(),   // {{2}}
-                    task.task,             // {{3}}
-                    assignedUser.name,     // {{4}} Updated By
-                    newStatus              // {{5}}
+                    newStatus,             // {{2}}
+                    task.sno.toString(),   // {{3}}
+                    task.task,             // {{4}}
+                    assignedUser.name,     // {{5}} Updated By
+                    dueDateTime,           // {{6}}
+                    task.notes || 'No notes' // {{7}}
                 ],
                 'en'
             );
@@ -408,8 +474,15 @@ export const notifyTaskApproved = async (task, assignedUser, approvedByUser) => 
         const config = getWhatsappConfig();
         // Use template if configured AND Business API is available, otherwise fallback to plain text
         // Use user provided template name
-        const templateName = 'task_approved_notification';
+        const templateName = 'task_approved_alert'; // Updated template name
+
         if (config.apiUrl && config.accessToken) {
+            // New 4-variable template
+            // {{1}} - Recipient Name (Assigned User)
+            // {{2}} - Task ID
+            // {{3}} - Task Name
+            // {{4}} - Approved By Name
+
             await sendWhatsAppTemplate(
                 assignedUser.whatsapp,
                 templateName,
@@ -417,8 +490,7 @@ export const notifyTaskApproved = async (task, assignedUser, approvedByUser) => 
                     assignedUser.name,         // {{1}}
                     task.sno.toString(),       // {{2}}
                     task.task,                 // {{3}}
-                    approvedByUser.name,       // {{4}}
-                    emailData.approvedDate     // {{5}}
+                    approvedByUser.name        // {{4}}
                 ],
                 'en'
             );
@@ -457,9 +529,17 @@ export const notifyTaskRejected = async (task, assignedUser, rejectedByUser, rea
     if (assignedUser.whatsapp) {
         const config = getWhatsappConfig();
         // Use template if configured AND Business API is available, otherwise fallback to plain text
-        // Use user provided template name (assuming Rejected maps to Returned for Revision)
-        const templateName = 'task_returned_for_revision';
+        // Use user provided template name
+        const templateName = 'task_rejected_return_alert'; // Updated template name
+
         if (config.apiUrl && config.accessToken) {
+            // New 5-variable template
+            // {{1}} - Recipient Name (Assigned User)
+            // {{2}} - Task ID
+            // {{3}} - Task Name
+            // {{4}} - Rejected By Name
+            // {{5}} - Reason/Notes
+
             await sendWhatsAppTemplate(
                 assignedUser.whatsapp,
                 templateName,
@@ -467,13 +547,79 @@ export const notifyTaskRejected = async (task, assignedUser, rejectedByUser, rea
                     assignedUser.name,          // {{1}}
                     task.sno.toString(),        // {{2}}
                     task.task,                  // {{3}}
-                    rejectedByUser.name,        // {{4}} (Returned By)
-                    reason || 'Revision Requested' // {{5}} Reason
+                    rejectedByUser.name,        // {{4}}
+                    reason || 'Revision Requested' // {{5}}
                 ],
                 'en'
             );
         } else {
             await sendWhatsApp(assignedUser.whatsapp, whatsappMessage);
+        }
+    }
+};
+
+export const notifyTaskComment = async (task, commentingUser, commentText) => {
+    // Determine recipients (everyone involved except the commenter)
+    const recruitingEmails = [];
+    const recipients = [];
+
+    // Check Creator
+    if (task.createdBy && task.createdBy.email !== commentingUser.email) {
+        recipients.push(task.createdBy);
+        recruitingEmails.push(task.createdBy.email);
+    }
+
+    // Check Assignee
+    if (task.assignedTo && task.assignedTo.email !== commentingUser.email) {
+        if (!recruitingEmails.includes(task.assignedTo.email)) {
+            recipients.push(task.assignedTo);
+            recruitingEmails.push(task.assignedTo.email);
+        }
+    }
+
+    // Process notifications
+    for (const recipient of recipients) {
+        // Send email
+        if (recipient.email) {
+            const emailData = {
+                userName: recipient.name,
+                taskTitle: task.task,
+                taskNumber: task.sno,
+                commentedBy: commentingUser.name,
+                commentText: commentText,
+                taskLink: `${process.env.FRONTEND_URL || 'http://localhost:5173'}/tasks`,
+            };
+            await sendEmail(
+                recipient.email,
+                `💬 New Comment on Task: ${task.task}`,
+                'taskComment',
+                emailData
+            ).catch(err => console.error(`Failed to send comment email to ${recipient.name}:`, err));
+        }
+
+        // Send WhatsApp if user has WhatsApp number
+        if (recipient.whatsapp) {
+            const config = getWhatsappConfig();
+            const templateName = 'task_comment_alert';
+
+            if (config.apiUrl && config.accessToken) {
+                await sendWhatsAppTemplate(
+                    recipient.whatsapp,
+                    templateName,
+                    [
+                        recipient.name,          // {{1}}
+                        task.sno.toString(),     // {{2}}
+                        task.task,               // {{3}}
+                        commentingUser.name,     // {{4}}
+                        commentText              // {{5}}
+                    ],
+                    'en'
+                ).catch(err => console.error(`Failed to send comment WhatsApp to ${recipient.name}:`, err));
+            } else {
+                const whatsappMessage = `💬 *New Comment on Task*\n\n📋 *Task*: ${task.task}\n👤 *Comment by*: ${commentingUser.name}\n📝 *Comment*: ${commentText}`;
+                await sendWhatsApp(recipient.whatsapp, whatsappMessage)
+                    .catch(err => console.error(`Failed to send comment WhatsApp text to ${recipient.name}:`, err));
+            }
         }
     }
 };

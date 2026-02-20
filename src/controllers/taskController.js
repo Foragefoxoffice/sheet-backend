@@ -1,6 +1,6 @@
 import Task from '../models/Task.js';
 import User from '../models/User.js';
-import { notifyTaskAssigned, notifyStatusChanged } from '../services/notificationService.js';
+import { notifyTaskAssigned, notifyStatusChanged, notifyTaskComment } from '../services/notificationService.js';
 
 // Role hierarchy for permissions
 const ROLE_HIERARCHY = {
@@ -517,15 +517,27 @@ export const updateTaskStatus = async (req, res) => {
 
         await task.save();
 
-        // Send notification to task creator if status changed to In Progress or Waiting for Approval
+        // Send notification when status changes to In Progress or Waiting for Approval.
+        // For forwarded tasks: notify B (forwarder). For direct tasks: notify A (creator).
         if (status === 'In Progress' || status === 'Waiting for Approval') {
-            const createdByUser = await User.findOne({ email: task.createdByEmail });
             const assignedToUser = await User.findOne({ email: task.assignedToEmail });
 
-            if (createdByUser && assignedToUser) {
-                notifyStatusChanged(task, assignedToUser, createdByUser, status).catch(err => {
-                    console.error('Notification error:', err);
-                });
+            if (task.isForwarded && task.forwardedBy) {
+                // Notify B (the forwarder) about C's status update
+                const forwarderUser = await User.findById(task.forwardedBy);
+                if (forwarderUser && assignedToUser) {
+                    notifyStatusChanged(task, assignedToUser, forwarderUser, status).catch(err => {
+                        console.error('Notification error (forwarder):', err);
+                    });
+                }
+            } else {
+                // Notify A (original creator) about status update
+                const createdByUser = await User.findOne({ email: task.createdByEmail });
+                if (createdByUser && assignedToUser) {
+                    notifyStatusChanged(task, assignedToUser, createdByUser, status).catch(err => {
+                        console.error('Notification error (creator):', err);
+                    });
+                }
             }
         }
 
@@ -602,6 +614,61 @@ export const updateTask = async (req, res) => {
                     task.forwardedByEmail = req.user.email;
                     task.forwardedByName = req.user.name;
                     task.forwardedAt = new Date();
+
+                    // Send notifications for forwarding
+                    try {
+                        const { sendWhatsAppTemplate } = await import('../services/notificationService.js');
+                        const { getWhatsappConfig } = await import('../services/notificationService.js');
+                        const config = getWhatsappConfig();
+
+                        // Format due date
+                        const formattedDueDate = new Date(task.dueDate).toLocaleDateString('en-US', {
+                            year: 'numeric',
+                            month: 'long',
+                            day: 'numeric'
+                        });
+
+                        // Get original creator details
+                        const createdByUser = await User.findById(task.createdBy);
+
+                        // 1. Notify new assignee (C) about forwarded task using same new-task template
+                        if (config.apiUrl && config.accessToken && assignedUser.whatsapp) {
+                            sendWhatsAppTemplate(
+                                assignedUser.whatsapp,
+                                'fraud_alert_2',
+                                [
+                                    assignedUser.name,              // {{1}} Assigned User Name (C)
+                                    task.sno.toString(),            // {{2}} Task ID
+                                    task.task,                      // {{3}} Task Name
+                                    req.user.name,                  // {{4}} Assigned By (B the forwarder)
+                                    task.priority,                  // {{5}} Priority
+                                    formattedDueDate,               // {{6}} Due Date & Time
+                                    (task.notes || 'No notes').replace(/[\n\t]/g, ' ')  // {{7}} Notes
+                                ],
+                                'en_US'
+                            ).catch(err => console.error('WhatsApp notification error (new assignee C):', err));
+                        }
+
+                        // 2. Notify original creator that task was forwarded
+                        if (config.apiUrl && config.accessToken && createdByUser?.whatsapp) {
+                            sendWhatsAppTemplate(
+                                createdByUser.whatsapp,
+                                'fraud_alert_2',
+                                [
+                                    createdByUser.name,                             // {{1}} Recipient Name
+                                    task.sno.toString(),                            // {{2}} Task ID
+                                    task.task,                                      // {{3}} Task Name
+                                    req.user.name,                                  // {{4}} Forwarded By
+                                    task.priority,                                  // {{5}} Priority
+                                    formattedDueDate,                               // {{6}} Due Date & Time
+                                    (task.notes || 'No notes').replace(/[\n\t]/g, ' ')  // {{7}} Notes
+                                ],
+                                'en_US'
+                            ).catch(err => console.error('WhatsApp notification error (creator):', err));
+                        }
+                    } catch (notifError) {
+                        console.error('Forwarding notification error:', notifError);
+                    }
                 }
 
                 task.assignedTo = assignedUser._id;
@@ -731,10 +798,16 @@ export const addTaskComment = async (req, res) => {
         const updatedTask = await Task.findById(task._id)
             .populate({
                 path: 'createdBy assignedTo approvedBy',
-                select: 'name email role',
+                select: 'name email role whatsapp',
                 populate: { path: 'role', select: 'displayName' }
             })
             .populate('comments.createdBy', 'name role designation');
+
+        // Send Notification
+        // Use the updatedTask which has the populated fields
+        notifyTaskComment(updatedTask, commentingUser, text).catch(err => {
+            console.error('Comment notification error:', err);
+        });
 
         res.json({
             success: true,

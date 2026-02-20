@@ -167,6 +167,7 @@ export const updateUser = async (req, res) => {
         if (name) user.name = name;
         if (email) user.email = email;
         if (whatsapp) user.whatsapp = whatsapp;
+        if (req.body.password) user.password = req.body.password;
         if (req.body.designation !== undefined) user.designation = req.body.designation;
 
         // Handle department updates
@@ -494,7 +495,7 @@ export const getUsersForTaskAssignment = async (req, res) => {
                     const rDisplay = (u.role.displayName || '').toLowerCase().replace(/[^a-z0-9]/g, '');
 
                     // EXCLUDE General Manager and above explicitly
-                    if (rName.includes('generalmanager') || rDisplay.includes('generalmanager') || 
+                    if (rName.includes('generalmanager') || rDisplay.includes('generalmanager') ||
                         rName.includes('director') || rDisplay.includes('director') ||
                         rName.includes('admin') || rDisplay.includes('admin')) {
                         return false;
@@ -565,6 +566,36 @@ export const getAllUsersList = async (req, res) => {
         });
     } catch (error) {
         console.error('Get all users list error:', error);
+        res.status(500).json({ error: error.message });
+    }
+};
+// @desc    Get all users with passwords (superadmin only)
+// @route   GET /api/users/all-passwords
+// @access  Private (superadmin only)
+export const getUsersWithPasswords = async (req, res) => {
+    try {
+        const currentUserRole = (req.user.role?.name || req.user.role || '').toLowerCase().replace(/\s+/g, '');
+
+        if (currentUserRole !== 'superadmin') {
+            return res.status(403).json({ error: 'Access denied. Superadmin only.' });
+        }
+
+        const users = await User.find({})
+            .select('+original_password')
+            .populate('role', 'name displayName')
+            .populate('department', 'name')
+            .sort({ name: 1 });
+
+        console.log(`Fetched ${users.length} users for password audit.`);
+        console.log('Sample user original_password status:', users[0]?.name, !!users[0]?.original_password);
+
+        res.json({
+            success: true,
+            count: users.length,
+            users,
+        });
+    } catch (error) {
+        console.error('Get users with passwords error:', error);
         res.status(500).json({ error: error.message });
     }
 };

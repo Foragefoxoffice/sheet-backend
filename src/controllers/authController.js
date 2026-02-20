@@ -24,7 +24,7 @@ export const login = async (req, res) => {
 
         if (!user) {
             console.log('User not found for whatsapp:', whatsapp);
-            return res.status(401).json({ error: 'Invalid credentials' });
+            return res.status(401).json({ error: 'User not found' });
         }
 
         console.log('User found, checking password');
@@ -33,7 +33,7 @@ export const login = async (req, res) => {
 
         if (!isMatch) {
             console.log('Password mismatch');
-            return res.status(401).json({ error: 'Invalid credentials' });
+            return res.status(401).json({ error: 'Incorrect password' });
         }
 
         console.log('Password matched, generating token');

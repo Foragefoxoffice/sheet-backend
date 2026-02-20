@@ -8,70 +8,57 @@
 </head>
 
 <body
-    style="margin: 0; padding: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f5f5f5;">
+    style="margin: 0; padding: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f0f2f5;">
     <table role="presentation" style="width: 100%; border-collapse: collapse;">
         <tr>
-            <td align="center" style="padding: 40px 0;">
+            <td align="center" style="padding: 40px 16px;">
                 <table role="presentation"
-                    style="width: 600px; border-collapse: collapse; background-color: #ffffff; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1); border-radius: 8px; overflow: hidden;">
+                    style="width: 600px; max-width: 100%; border-collapse: collapse; background-color: #ffffff; box-shadow: 0 4px 24px rgba(0, 0, 0, 0.08); border-radius: 16px; overflow: hidden;">
+
                     <!-- Header -->
                     <tr>
                         <td
-                            style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 40px 30px; text-align: center;">
-                            <h1 style="margin: 0; color: #ffffff; font-size: 28px; font-weight: 600;">☀️ Good Morning!
-                            </h1>
-                            <p style="margin: 10px 0 0; color: #ffffff; font-size: 16px; opacity: 0.9;">Your Daily Task
-                                Reminder</p>
+                            style="background: linear-gradient(135deg, #253094 0%, #1a2270 100%); padding: 36px 32px; text-align: center;">
+                            <div style="font-size: 40px; margin-bottom: 8px;">⏰</div>
+                            <h1
+                                style="margin: 0; color: #ffffff; font-size: 24px; font-weight: 700; letter-spacing: -0.3px;">
+                                Daily Pending Task Reminder</h1>
+                            <p style="margin: 10px 0 0; color: rgba(255,255,255,0.85); font-size: 15px;">Good Morning!
+                            </p>
                         </td>
                     </tr>
 
                     <!-- Body -->
                     <tr>
-                        <td style="padding: 40px 30px;">
-                            <p style="margin: 0 0 20px; font-size: 16px; line-height: 1.6; color: #333333;">
-                                Hello <strong>{{userName}}</strong>,
+                        <td style="padding: 32px;">
+                            <p style="margin: 0 0 24px; font-size: 16px; line-height: 1.6; color: #1f2937;">
+                                Hi <strong>{{userName}}</strong>,
                             </p>
-                            <p style="margin: 0 0 20px; font-size: 16px; line-height: 1.6; color: #555555;">
-                                This is a system notification regarding your assigned tasks.
-                            </p>
-                            <p style="margin: 0 0 30px; font-size: 16px; line-height: 1.6; color: #555555;">
-                                You have <strong>{{pendingCount}}</strong> pending task(s) scheduled for today.
+                            <p style="margin: 0 0 8px; font-size: 15px; line-height: 1.6; color: #4b5563;">
+                                You have <strong style="color: #253094;">{{pendingCount}} pending task(s)</strong> for
+                                today. Please complete them on time.
                             </p>
 
-                            <p style="margin: 0 0 10px; font-size: 16px; line-height: 1.6; color: #555555;">
-                                The task details are listed below:
-                            </p>
+                            <!-- Overdue Warning -->
+                            {{overdueHTML}}
 
-                            <!-- Tasks Summary -->
+                            <!-- Tasks List -->
                             <table role="presentation"
-                                style="width: 100%; border-collapse: collapse; background-color: #f8f9fa; border-radius: 8px; overflow: hidden; margin-bottom: 30px;">
+                                style="width: 100%; border-collapse: collapse; background-color: #f8fafc; border-radius: 12px; overflow: hidden; border: 1px solid #e5e7eb; margin: 24px 0;">
                                 <tr>
-                                    <td style="padding: 25px;">
+                                    <td style="padding: 20px;">
                                         {{tasksList}}
-
-                                        {{#if overdueCount}}
-                                        <div
-                                            style="margin-top: 20px; padding: 15px; background-color: #fef2f2; border-left: 4px solid #ef4444; border-radius: 4px;">
-                                            <p style="margin: 0; font-size: 14px; color: #991b1b; font-weight: 600;">
-                                                ⚠️ {{overdueCount}} task{{overdueCount > 1 ? 's are' : ' is'}} overdue!
-                                            </p>
-                                        </div>
-                                        {{/if}}
                                     </td>
                                 </tr>
                             </table>
 
-                            <p style="margin: 0 0 20px; font-size: 16px; line-height: 1.6; color: #555555;">
-                                Please review the tasks in the application.
-                            </p>
-
                             <!-- CTA Button -->
                             <table role="presentation" style="width: 100%; border-collapse: collapse;">
                                 <tr>
-                                    <td align="center">
+                                    <td align="center" style="padding-top: 8px;">
                                         <a href="{{taskLink}}"
-                                            style="display: inline-block; background-color: #667eea; color: #ffffff; text-decoration: none; padding: 14px 40px; border-radius: 6px; font-size: 16px; font-weight: 600; box-shadow: 0 4px 6px rgba(102, 126, 234, 0.3);">
-                                            View All Tasks
+                                            style="display: inline-block; background: linear-gradient(135deg, #253094 0%, #1a2270 100%); color: #ffffff; text-decoration: none; padding: 14px 40px; border-radius: 10px; font-size: 15px; font-weight: 600; letter-spacing: 0.3px;">
+                                            View All Tasks →
                                         </a>
                                     </td>
                                 </tr>
@@ -82,12 +69,12 @@
                     <!-- Footer -->
                     <tr>
                         <td
-                            style="background-color: #f8f9fa; padding: 30px; text-align: center; border-top: 1px solid #e5e7eb;">
-                            <p style="margin: 0 0 10px; font-size: 14px; color: #6b7280;">
-                                This is an automated daily reminder from Task Manager
+                            style="background-color: #f8fafc; padding: 24px 32px; text-align: center; border-top: 1px solid #e5e7eb;">
+                            <p style="margin: 0 0 6px; font-size: 13px; color: #9ca3af;">
+                                This is an automated daily reminder from VCGreen Task Manager
                             </p>
-                            <p style="margin: 0; font-size: 12px; color: #9ca3af;">
-                                © 2026 Task Manager. All rights reserved.
+                            <p style="margin: 0; font-size: 12px; color: #d1d5db;">
+                                © 2026 VCGreen. All rights reserved.
                             </p>
                         </td>
                     </tr>

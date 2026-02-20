@@ -7,67 +7,88 @@
     <title>New Task Assigned</title>
 </head>
 
-<body
-    style="margin: 0; padding: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f5f5f5;">
+<body style="margin: 0; padding: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f0f2f5;">
     <table role="presentation" style="width: 100%; border-collapse: collapse;">
         <tr>
-            <td align="center" style="padding: 40px 0;">
-                <table role="presentation"
-                    style="width: 600px; border-collapse: collapse; background-color: #ffffff; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1); border-radius: 8px; overflow: hidden;">
+            <td align="center" style="padding: 40px 16px;">
+                <table role="presentation" style="width: 600px; max-width: 100%; border-collapse: collapse; background-color: #ffffff; box-shadow: 0 4px 24px rgba(0, 0, 0, 0.08); border-radius: 16px; overflow: hidden;">
+
                     <!-- Header -->
                     <tr>
-                        <td
-                            style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 40px 30px; text-align: center;">
-                            <h1 style="margin: 0; color: #ffffff; font-size: 28px; font-weight: 600;">📋 New Task
-                                Assigned</h1>
+                        <td style="background: linear-gradient(135deg, #253094 0%, #1a2270 100%); padding: 36px 32px; text-align: center;">
+                            <div style="font-size: 40px; margin-bottom: 8px;">🔔</div>
+                            <h1 style="margin: 0; color: #ffffff; font-size: 24px; font-weight: 700; letter-spacing: -0.3px;">New Task Assigned</h1>
                         </td>
                     </tr>
 
                     <!-- Body -->
                     <tr>
-                        <td style="padding: 40px 30px;">
-                            <p style="margin: 0 0 20px; font-size: 16px; line-height: 1.6; color: #333333;">
-                                Hello <strong>{{userName}}</strong>,
+                        <td style="padding: 32px;">
+                            <p style="margin: 0 0 24px; font-size: 16px; line-height: 1.6; color: #1f2937;">
+                                Hi <strong>{{userName}}</strong>,
                             </p>
-                            <p style="margin: 0 0 20px; font-size: 16px; line-height: 1.6; color: #555555;">
-                                This is a notification regarding a newly assigned task.
-                            </p>
-                            <p style="margin: 0 0 30px; font-size: 16px; line-height: 1.6; color: #555555;">
-                                The task number: <strong>#{{taskNumber}}</strong>,<br>
-                                Titled: <strong>{{taskTitle}}</strong>,<br>
-                                has been assigned to you by <strong>{{assignedBy}}</strong>.<br>
-                                The due date for this task is <strong>{{dueDate}}</strong>, and the priority level
-                                assigned is
-                                <strong>{{priority}}</strong>.
+                            <p style="margin: 0 0 24px; font-size: 15px; line-height: 1.6; color: #4b5563;">
+                                A new task has been assigned to you. Please review and start the task.
                             </p>
 
-                            <!-- Task Card -->
-                            <table role="presentation"
-                                style="width: 100%; border-collapse: collapse; background-color: #f8f9fa; border-radius: 8px; overflow: hidden; margin-bottom: 30px;">
+                            <!-- Task Details Card -->
+                            <table role="presentation" style="width: 100%; border-collapse: collapse; background-color: #f8fafc; border-radius: 12px; overflow: hidden; border: 1px solid #e5e7eb; margin-bottom: 24px;">
                                 <tr>
-                                    <td style="padding: 25px;">
-                                        <div style="margin-top: 0px; padding-top: 0px; border-top: 0px solid #e5e7eb;">
-                                            <p style="margin: 0; font-size: 14px; color: #6b7280; font-style: italic;">
-                                                <strong style="color: #374151;">Notes:</strong><br>
-                                                {{notes}}
-                                            </p>
-                                        </div>
+                                    <td style="padding: 24px;">
+                                        <!-- Task ID -->
+                                        <table role="presentation" style="width: 100%; border-collapse: collapse; margin-bottom: 16px;">
+                                            <tr>
+                                                <td style="width: 130px; font-size: 13px; color: #6b7280; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; padding: 6px 0; vertical-align: top;">Task ID</td>
+                                                <td style="font-size: 15px; color: #1f2937; font-weight: 600; padding: 6px 0;">#{{taskNumber}}</td>
+                                            </tr>
+                                        </table>
+                                        <!-- Task Name -->
+                                        <table role="presentation" style="width: 100%; border-collapse: collapse; margin-bottom: 16px;">
+                                            <tr>
+                                                <td style="width: 130px; font-size: 13px; color: #6b7280; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; padding: 6px 0; vertical-align: top;">Task Name</td>
+                                                <td style="font-size: 15px; color: #1f2937; font-weight: 600; padding: 6px 0;">{{taskTitle}}</td>
+                                            </tr>
+                                        </table>
+                                        <!-- Assigned By -->
+                                        <table role="presentation" style="width: 100%; border-collapse: collapse; margin-bottom: 16px;">
+                                            <tr>
+                                                <td style="width: 130px; font-size: 13px; color: #6b7280; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; padding: 6px 0; vertical-align: top;">Assigned By</td>
+                                                <td style="font-size: 15px; color: #1f2937; padding: 6px 0;">{{assignedBy}}</td>
+                                            </tr>
+                                        </table>
+                                        <!-- Priority -->
+                                        <table role="presentation" style="width: 100%; border-collapse: collapse; margin-bottom: 16px;">
+                                            <tr>
+                                                <td style="width: 130px; font-size: 13px; color: #6b7280; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; padding: 6px 0; vertical-align: top;">Priority</td>
+                                                <td style="font-size: 14px; padding: 6px 0;">
+                                                    <span style="display: inline-block; padding: 3px 12px; border-radius: 20px; font-weight: 600; background-color: {{priorityBg}}; color: {{priorityColor}};">{{priority}}</span>
+                                                </td>
+                                            </tr>
+                                        </table>
+                                        <!-- Due Date & Time -->
+                                        <table role="presentation" style="width: 100%; border-collapse: collapse; margin-bottom: 16px;">
+                                            <tr>
+                                                <td style="width: 130px; font-size: 13px; color: #6b7280; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; padding: 6px 0; vertical-align: top;">Due Date & Time</td>
+                                                <td style="font-size: 15px; color: #1f2937; padding: 6px 0;">{{dueDate}} {{dueTime}}</td>
+                                            </tr>
+                                        </table>
+                                        <!-- Notes -->
+                                        <table role="presentation" style="width: 100%; border-collapse: collapse;">
+                                            <tr>
+                                                <td style="width: 130px; font-size: 13px; color: #6b7280; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; padding: 6px 0; vertical-align: top;">Notes</td>
+                                                <td style="font-size: 14px; color: #4b5563; padding: 6px 0; font-style: italic;">{{notes}}</td>
+                                            </tr>
+                                        </table>
                                     </td>
                                 </tr>
                             </table>
 
-                            <p style="margin: 0 0 20px; font-size: 16px; line-height: 1.6; color: #555555;">
-                                If you have received and reviewed this information, please check the application for
-                                more details.
-                            </p>
-
                             <!-- CTA Button -->
                             <table role="presentation" style="width: 100%; border-collapse: collapse;">
                                 <tr>
-                                    <td align="center">
-                                        <a href="{{taskLink}}"
-                                            style="display: inline-block; background-color: #667eea; color: #ffffff; text-decoration: none; padding: 14px 40px; border-radius: 6px; font-size: 16px; font-weight: 600; box-shadow: 0 4px 6px rgba(102, 126, 234, 0.3);">
-                                            View Task Details
+                                    <td align="center" style="padding-top: 8px;">
+                                        <a href="{{taskLink}}" style="display: inline-block; background: linear-gradient(135deg, #253094 0%, #1a2270 100%); color: #ffffff; text-decoration: none; padding: 14px 40px; border-radius: 10px; font-size: 15px; font-weight: 600; letter-spacing: 0.3px;">
+                                            View Task Details →
                                         </a>
                                     </td>
                                 </tr>
@@ -77,13 +98,12 @@
 
                     <!-- Footer -->
                     <tr>
-                        <td
-                            style="background-color: #f8f9fa; padding: 30px; text-align: center; border-top: 1px solid #e5e7eb;">
-                            <p style="margin: 0 0 10px; font-size: 14px; color: #6b7280;">
-                                This is an automated notification from Task Manager
+                        <td style="background-color: #f8fafc; padding: 24px 32px; text-align: center; border-top: 1px solid #e5e7eb;">
+                            <p style="margin: 0 0 6px; font-size: 13px; color: #9ca3af;">
+                                This is an automated notification from VCGreen Task Manager
                             </p>
-                            <p style="margin: 0; font-size: 12px; color: #9ca3af;">
-                                © 2026 Task Manager. All rights reserved.
+                            <p style="margin: 0; font-size: 12px; color: #d1d5db;">
+                                © 2026 VCGreen. All rights reserved.
                             </p>
                         </td>
                     </tr>
