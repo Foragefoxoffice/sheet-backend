@@ -1,6 +1,7 @@
 import Task from '../models/Task.js';
 import User from '../models/User.js';
 import { notifyTaskApproved, notifyTaskRejected } from '../services/notificationService.js';
+import { emitToUser } from '../socket.js';
 
 // @desc    Get pending approvals
 // @route   GET /api/approvals
@@ -124,6 +125,9 @@ export const approveTask = async (req, res) => {
                 }
             }
 
+            // --- Emit Socket Event for Intermediate Approval ---
+            emitToUser(String(task.createdBy?._id || task.createdBy), 'task_waiting_approval', task);
+
             return res.json({
                 success: true,
                 message: 'Intermediate approval granted. Task passed to original creator.',
@@ -163,6 +167,12 @@ export const approveTask = async (req, res) => {
                     console.error('Notification error (forwarder B):', err);
                 });
             }
+        }
+
+        // --- Emit Socket Event for Final Approval ---
+        emitToUser(String(task.assignedTo?._id || task.assignedTo), 'task_approved', task);
+        if (task.isForwarded && task.forwardedBy) {
+            emitToUser(String(task.forwardedBy?._id || task.forwardedBy), 'task_approved', task);
         }
 
         res.json({
@@ -230,6 +240,12 @@ export const rejectTask = async (req, res) => {
                     console.error('Notification error (forwarder B):', err);
                 });
             }
+        }
+
+        // --- Emit Socket Event for Rejection ---
+        emitToUser(String(task.assignedTo?._id || task.assignedTo), 'task_rejected', task);
+        if (isCreator && task.isForwarded && task.forwardedBy) {
+            emitToUser(String(task.forwardedBy?._id || task.forwardedBy), 'task_rejected', task);
         }
 
         res.json({

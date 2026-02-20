@@ -1,6 +1,7 @@
 import Task from '../models/Task.js';
 import User from '../models/User.js';
 import { notifyTaskAssigned, notifyStatusChanged, notifyTaskComment } from '../services/notificationService.js';
+import { emitToUser, broadcast } from '../socket.js';
 
 // Role hierarchy for permissions
 const ROLE_HIERARCHY = {
@@ -159,6 +160,10 @@ export const createTask = async (req, res) => {
         } catch (notifError) {
             console.error('Notification logic error:', notifError);
         }
+
+        // --- Emit Socket Event ---
+        const targetUserId = newTask.assignedTo?._id || newTask.assignedTo;
+        emitToUser(String(targetUserId), 'task_created', newTask);
 
         res.status(201).json({
             success: true,
@@ -541,6 +546,15 @@ export const updateTaskStatus = async (req, res) => {
             }
         }
 
+        // --- Emit Socket Events ---
+        if (status === 'Waiting for Approval') {
+            const approverId = task.currentApprover || task.createdBy;
+            emitToUser(String(approverId?._id || approverId), 'task_waiting_approval', task);
+        } else {
+            // Notify creator about status change
+            emitToUser(String(task.createdBy?._id || task.createdBy), 'task_status_changed', task);
+        }
+
         res.json({
             success: true,
             task,
@@ -684,6 +698,21 @@ export const updateTask = async (req, res) => {
 
         const updatedTask = await Task.findById(task._id).populate('createdBy assignedTo', 'name email role');
 
+        // --- Emit Socket Events ---
+        const assigneeId = updatedTask.assignedTo?._id || updatedTask.assignedTo;
+        const creatorId = updatedTask.createdBy?._id || updatedTask.createdBy;
+
+        if (task.isForwarded && task.forwardedBy) {
+            // Notify new assignee
+            emitToUser(String(assigneeId), 'task_forwarded', updatedTask);
+            // Notify creator
+            emitToUser(String(creatorId), 'task_list_update', updatedTask);
+        } else {
+            // General update notification
+            emitToUser(String(assigneeId), 'task_list_update', updatedTask);
+            emitToUser(String(creatorId), 'task_list_update', updatedTask);
+        }
+
         res.json({
             success: true,
             task: updatedTask,
@@ -724,7 +753,11 @@ export const deleteTask = async (req, res) => {
             return res.status(403).json({ error: 'Not authorized to delete this task' });
         }
 
+        const assigneeId = task.assignedTo.toString();
         await task.deleteOne();
+
+        // --- Emit Socket Event ---
+        emitToUser(assigneeId, 'task_list_update', { taskId: req.params.id, deleted: true });
 
         res.json({
             success: true,
@@ -808,6 +841,14 @@ export const addTaskComment = async (req, res) => {
         notifyTaskComment(updatedTask, commentingUser, text).catch(err => {
             console.error('Comment notification error:', err);
         });
+
+        // --- Emit Socket Events ---
+        // Notify both parties involved in the task
+        const assignedToId = updatedTask.assignedTo?._id || updatedTask.assignedTo;
+        const createdById = updatedTask.createdBy?._id || updatedTask.createdBy;
+
+        emitToUser(String(createdById), 'task_list_update', updatedTask);
+        emitToUser(String(assignedToId), 'task_list_update', updatedTask);
 
         res.json({
             success: true,
